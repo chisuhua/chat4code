@@ -1,0 +1,12 @@
+{
+  "export_time": "2025-08-26T18:09:09.381111",
+  "source_dir": "/mnt/ubuntu/chisuhua/github/chat4code/examples",
+  "output_file": "/mnt/ubuntu/chisuhua/github/chat4code/tmp/ai_req3.md",
+  "file_hashes": {
+    "temp.md": "77e936c583a35c72dd2f98b263807768",
+    "v1.md": "50922445a4ff2b01ea3c8327cd541310",
+    "sample_project/utils.h": "258eda399139269e4fc9669aa540cc35",
+    "sample_project/utils.cpp": "609699a5a259673a925d30678fd230a8",
+    "sample_project/main.cpp": "0594a98df05c925d7d69dee1a14ae761"
+  }
+}
