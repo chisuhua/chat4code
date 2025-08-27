@@ -28,14 +28,24 @@ class TaskManager:
                     prompts_file = path
                     break
             else:
-                # 如果找不到文件，抛出异常
-                raise FileNotFoundError(
-                    "找不到提示词文件！\n"
-                    "chat4code需要外部提示词文件才能工作。\n"
-                    "请确保以下文件之一存在：\n"
-                    + "\n".join(f"  - {path}" for path in possible_paths[:3]) + "\n"
-                    "或者在配置文件中指定 prompts_file 路径。"
-                )
+                # 如果找不到文件，尝试从包目录复制默认提示词
+                package_prompts_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
+                if os.path.exists(package_prompts_path):
+                    # 复制到当前目录
+                    import shutil
+                    target_prompts_path = "prompts.yaml"
+                    shutil.copy2(package_prompts_path, target_prompts_path)
+                    prompts_file = target_prompts_path
+                    print(f"✅ 从包目录复制默认提示词文件: {package_prompts_path}")
+                else:
+                    # 如果找不到文件，抛出异常
+                    raise FileNotFoundError(
+                        "找不到提示词文件！\n"
+                        "chat4code需要外部提示词文件才能工作。\n"
+                        "请确保以下文件之一存在：\n"
+                        + "\n".join(f"  - {path}" for path in possible_paths[:3]) + "\n"
+                        "或者在配置文件中指定 prompts_file 路径。"
+                    )
         
         # 加载提示词
         if prompts_file and os.path.exists(prompts_file):

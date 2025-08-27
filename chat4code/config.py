@@ -130,8 +130,16 @@ class ConfigManager:
     def init_config_file(self):
         """初始化配置文件和示例提示词文件"""
         if not os.path.exists(self.config_file):
-            self.save_config()
-            print(f"✅ 初始化配置文件: {self.config_file}")
+            # 从包目录复制默认配置
+            package_config_path = os.path.join(os.path.dirname(__file__), ".chat4code.json")
+            if os.path.exists(package_config_path):
+                import shutil
+                shutil.copy2(package_config_path, self.config_file)
+                print(f"✅ 从包目录复制默认配置: {package_config_path}")
+            else:
+                # 如果包目录下没有默认配置，使用内置默认配置
+                self.save_config()
+                print(f"✅ 初始化配置文件: {self.config_file}")
             print("   您可以编辑此文件来自定义默认设置")
         else:
             print(f"ℹ️  配置文件已存在: {self.config_file}")
@@ -194,22 +202,17 @@ class ConfigManager:
                     "name": "代码分析",
                     "description": "分析项目结构和功能",
                     "prompt": "请分析这个项目的整体结构、主要功能模块和技术栈。",
-                    "response_format": "分析报告格式",
-                    "response_example": "## 项目分析报告\n\n### 项目概述\n- 项目名称: [项目名]\n- 主要技术栈: [技术列表]\n- 项目规模: [文件数量]\n\n### 功能模块\n1. **模块1**: [功能描述]\n2. **模块2**: [功能描述]"
                 },
                 "bugfix": {
                     "name": "Bug修复",
                     "description": "修复代码中的错误",
                     "prompt": "请检查代码中可能存在的bug，并提供修复方案。特别注意：内存泄漏、空指针、数组越界等问题。",
-                    "response_format": "修复格式",
                     "response_example": "## src/main.cpp\n```cpp\n#include <iostream>\n#include <memory>\n\nint main() {\n    // 修复了内存泄漏问题\n    std::unique_ptr<int[]> arr(new int[100]);\n    \n    // 修复了数组越界检查\n    for(int i = 0; i < 100; i++) {\n        arr[i] = i;\n    }\n    \n    return 0;\n}\n```"
                 },
                 "optimize": {
                     "name": "性能优化",
                     "description": "优化代码性能",
                     "prompt": "请分析代码的性能瓶颈，并提供优化建议。请严格按照以下格式返回：\n\n## 文件路径1\n```cpp\n// 优化后的代码内容\n```\n\n## src/utils.cpp\n```cpp\n#include \"utils.h\"\n#include <sstream>\n#include <vector>\n\nnamespace Utils {\n    std::vector<std::string> splitString(const std::string& str, char delimiter) {\n        std::vector<std::string> result;\n        // 预估大小以减少重新分配\n        result.reserve(str.size() / 5 + 1);\n        \n        std::stringstream ss(str);\n        std::string item;\n        \n        while (std::getline(ss, item, delimiter)) {\n            result.push_back(item);\n        }\n        \n        return result;\n    }\n}\n```",
-                    "response_format": "优化格式",
-                    "response_example": "## src/sort.cpp\n```cpp\n#include <vector>\n#include <algorithm>\n\n// 优化前: O(n^2) 冒泡排序\n// 优化后: O(n log n) 快速排序\nvoid sortArray(std::vector<int>& arr) {\n    std::sort(arr.begin(), arr.end());\n}\n```"
                 }
             },
             "cpp": {
@@ -217,8 +220,6 @@ class ConfigManager:
                     "name": "C++代码分析",
                     "description": "分析C++项目结构和功能",
                     "prompt": "请分析这个C++项目的整体结构、主要功能模块、使用的C++标准版本、第三方库依赖等。特别关注：内存管理方式、设计模式应用、编译构建系统等。",
-                    "response_format": "C++分析报告格式",
-                    "response_example": "## C++项目分析报告\n\n### 项目概述\n- 项目名称: [项目名]\n- C++标准: C++17/C++20\n- 构建系统: CMake/Makefile\n- 第三方库: [库列表]\n\n### 核心模块\n1. **核心逻辑模块**: [功能描述]\n2. **网络通信模块**: [使用的技术]\n3. **数据存储模块**: [数据库/文件格式]"
                 }
             },
             "python": {
@@ -226,8 +227,6 @@ class ConfigManager:
                     "name": "Python代码分析",
                     "description": "分析Python项目结构和功能",
                     "prompt": "请分析这个Python项目的整体结构、主要功能模块、使用的Python版本、第三方库依赖、包管理方式等。特别关注：模块组织、虚拟环境使用、测试框架等。",
-                    "response_format": "Python分析报告格式",
-                    "response_example": "## Python项目分析报告\n\n### 项目概述\n- 项目名称: [项目名]\n- Python版本: 3.8+/3.9+\n- 包管理: pip/conda/poetry\n- 依赖管理: requirements.txt/pyproject.toml\n\n### 核心模块\n1. **核心逻辑模块**: [功能描述]\n2. **Web框架模块**: Flask/Django/FastAPI\n3. **数据处理模块**: pandas/numpy"
                 }
             }
         }

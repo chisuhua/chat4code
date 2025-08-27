@@ -200,15 +200,19 @@ class CodeProjectAIHelper:
         
         markdown_content = "\n".join(markdown_lines)
         
-        # 保存到文件
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(markdown_content)
-        print(f"✅ 项目已导出到: {output_file}")
-        print(f"📁 包含 {file_count} 个代码文件")
-        
-        # 保存导出元数据（用于增量导出）
-        if not incremental:
-            self._save_export_metadata(src_dir, output_file)
+        # 如果指定了输出文件，则保存；否则打印到控制台
+        if output_file:
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+            print(f"✅ 项目已导出到: {output_file}")
+            print(f"📁 包含 {file_count} 个代码文件")
+            
+            # 保存导出元数据（用于增量导出）
+            if not incremental:
+                self._save_export_metadata(src_dir, output_file)
+        else:
+            # 输出到控制台
+            print(markdown_content)
         
         return output_file
 
@@ -217,7 +221,7 @@ class CodeProjectAIHelper:
                                flexible_parsing: bool = True,
                                show_diff: bool = False) -> Dict:
         """
-        应用Markdown响应到本地目录，支持差异显示和支持文件删除操作
+        应用Markdown响应到本地目录，支持差异显示
         """
         # 使用配置中的默认值
         if markdown_file is None:
@@ -252,7 +256,6 @@ class CodeProjectAIHelper:
         result = {
             'success': [],
             'failed': [],
-            'deleted': [],  # 新增：记录删除的文件
             'total': len(files),
             'parsed_files': [f[0] for f in files],
             'diffs': []  # 用于存储差异信息
@@ -287,7 +290,7 @@ class CodeProjectAIHelper:
                             'error': '文件不存在，无法删除'
                         })
                     continue
-                
+
                 # 构建完整路径
                 full_path = os.path.join(dst_dir, file_path)
                 
@@ -345,8 +348,6 @@ class CodeProjectAIHelper:
         
         # 输出统计信息
         print(f"\n📊 处理完成: {len(result['success'])}/{result['total']} 个文件成功")
-        if result['deleted']:
-            print(f"🗑️  {len(result['deleted'])} 个文件被删除")
         if result['failed']:
             print("❌ 失败的文件:")
             for item in result['failed']:
@@ -365,8 +366,8 @@ class CodeProjectAIHelper:
                     print(f"      - 删除 {diff_info['diff']['lines_removed']} 行")
                 if diff_info['diff']['lines_modified'] > 0:
                     print(f"      ~ 修改 {diff_info['diff']['lines_modified']} 行")
-            
-            # 显示删除的文件
+
+             # 显示删除的文件
             if result['deleted']:
                 print(f"\n🗑️  删除的文件:")
                 for deleted_info in result['deleted']:
@@ -397,19 +398,46 @@ class CodeProjectAIHelper:
             print(f"ℹ️  使用配置指定的项目类型: {config_project_type}")
             return config_project_type
         
-        # 否则自动检测项目类型
+        # 否则自动检测项目类型（基于文件数量）
         if extensions is None:
             extensions = self.default_extensions
         
-        found_extensions = set()
+        # 统计各类型文件数量
+        cpp_extensions = {'.cpp', '.cc', '.cxx', '.c', '.h', '.hh', '.hpp'}
+        python_extensions = {'.py'}
+        js_extensions = {'.js', '.ts', '.jsx', '.tsx'}
+        
+        cpp_count = 0
+        python_count = 0
+        js_count = 0
+        
         for root, _, files in os.walk(src_dir):
             for file in files:
                 if file.endswith(extensions):
                     _, ext = os.path.splitext(file.lower())
-                    found_extensions.add(ext)
+                    if ext in cpp_extensions:
+                        cpp_count += 1
+                    elif ext in python_extensions:
+                        python_count += 1
+                    elif ext in js_extensions:
+                        js_count += 1
         
-        detected_type = self.task_manager.detect_project_type(found_extensions)
-        print(f"🔍 自动检测到项目类型: {detected_type}")
+        print(f"🔍 项目类型检测结果:")
+        print(f"   C++ 文件: {cpp_count} 个")
+        print(f"   Python 文件: {python_count} 个")
+        print(f"   JavaScript 文件: {js_count} 个")
+        
+        # 根据文件数量最多的类型来判断
+        if cpp_count > python_count and cpp_count > js_count:
+            detected_type = "cpp"
+        elif python_count > cpp_count and python_count > js_count:
+            detected_type = "python"
+        elif js_count > cpp_count and js_count > python_count:
+            detected_type = "javascript"
+        else:
+            detected_type = "generic"
+        
+        print(f"   检测到项目类型: {detected_type}")
         return detected_type
 
     def _get_changed_files(self, src_dir: str, since_time: str = None) -> set:
