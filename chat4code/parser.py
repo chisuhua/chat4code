@@ -1,5 +1,5 @@
 """
-chat4code 响应解析模块 - 状态机版本
+chat4code 响应解析模块 - 支持文件删除操作
 """
 
 import os
@@ -12,7 +12,8 @@ class ResponseParser:
 
     def extract_files_standard(self, content: str) -> List[Tuple[str, str, str]]:
         """
-        使用状态机方法解析文件内容，能正确处理文件内容中包含 ``` 的情况
+        标准格式提取：## 文件路径 ```语言 内容 ```
+        支持文件删除标记
         """
         files = []
         lines = content.split('\n')
@@ -38,12 +39,17 @@ class ResponseParser:
                         # 提取语言标识
                         language = self._extract_language(lines[i])
                         
-                        # 提取代码内容 - 使用平衡计数法
+                        # 提取代码内容
                         i += 1
                         code_content, next_line_index = self._extract_code_content(lines, i)
                         
                         if code_content is not None:
-                            files.append((clean_file_path, language, code_content))
+                            # 检查是否为删除标记
+                            if language == 'deleted' or '// 此文件已被删除' in code_content:
+                                # 标记为删除的文件
+                                files.append((clean_file_path, 'deleted', 'DELETED'))
+                            else:
+                                files.append((clean_file_path, language, code_content))
                             i = next_line_index
                         else:
                             i += 1
@@ -70,7 +76,6 @@ class ResponseParser:
     def _extract_code_content(self, lines: List[str], start_index: int) -> Tuple[Optional[str], int]:
         """
         提取代码内容，正确处理内容中的 ```
-        使用平衡计数法确保找到正确的结束标记
         """
         code_lines = []
         i = start_index
@@ -80,8 +85,8 @@ class ResponseParser:
             if line.strip() == '```':
                 # 找到结束标记
                 code_content = '\n'.join(code_lines)
-                # 移除末尾的空行
-                code_content = code_content.rstrip()
+                # 移除首尾的空行
+                code_content = code_content.strip()
                 return code_content, i + 1
             else:
                 code_lines.append(line)
@@ -117,7 +122,7 @@ class ResponseParser:
         if ('.' in basename or 
             '/' in file_path or 
             '\\' in file_path or
-            file_path.endswith(('.md', '.txt', '.json', '.yaml', '.yml'))):
+            file_path.endswith(('.md', '.txt', '.json'))):
             return True
             
         # 明确的标题特征
@@ -147,7 +152,8 @@ class ResponseParser:
 
     def extract_files_flexible(self, content: str) -> List[Tuple[str, str, str]]:
         """
-        灵活格式提取
+        灵活格式提取：处理AI可能的各种输出格式
+        包括处理详细说明文本的情况和文件删除标记
         """
         # 首先尝试标准格式
         standard_files = self.extract_files_standard(content)
@@ -155,58 +161,45 @@ class ResponseParser:
             return standard_files
         
         # 备用正则表达式方法
-        return self._extract_with_regex_backup(content)
+        return self._extract_with_regex_flexible(content)
 
-    def _extract_with_regex_backup(self, content: str) -> List[Tuple[str, str, str]]:
+    def _extract_with_regex_flexible(self, content: str) -> List[Tuple[str, str, str]]:
         """
-        备用正则表达式提取方法
+        使用更灵活的正则表达式提取文件
         """
         files = []
         
-        # 使用更精确的正则表达式
-        pattern = r'##\s+([^\n]+?)\s*\n\s*\n\s*```(\w*)\s*\n((?:(?!```).)*?)\s*\n\s*```'
+        # 匹配模式：## 文件路径 + 可选的说明文字 + ```语言 + 代码内容 + ```
+        pattern = r'##\s+([^\n]+?)\s*\n\s*\n\s*```(\w*)\s*\n(.*?)\s*\n\s*```'
         matches = re.findall(pattern, content, re.DOTALL)
         
         for file_path, lang, code_content in matches:
             clean_file_path = self._clean_file_path(file_path.strip())
             if clean_file_path and self._is_valid_file_path(clean_file_path):
-                files.append((clean_file_path, lang or 'text', code_content.strip()))
+                # 检查是否为删除标记
+                if lang == 'deleted' or '// 此文件已被删除' in code_content:
+                    files.append((clean_file_path, 'deleted', 'DELETED'))
+                else:
+                    cleaned_code = self._clean_code_content(code_content)
+                    files.append((clean_file_path, lang or 'text', cleaned_code.strip()))
         
         return files
 
-    def _infer_filename(self, code_content: str, lang: str, index: int) -> str:
+    def _clean_code_content(self, code_content: str) -> str:
         """
-        从代码内容推断文件名
+        清理代码内容，移除可能混入的说明文字
         """
-        # 尝试从#include语句推断
-        include_match = re.search(r'#include\s*["<]([^">]+)[">]', code_content)
-        if include_match:
-            return include_match.group(1)
+        lines = code_content.split('\n')
+        cleaned_lines = []
         
-        # 尝试从package语句推断（Java）
-        package_match = re.search(r'package\s+([a-zA-Z0-9_.]+)', code_content)
-        if package_match and lang == 'java':
-            return f"{package_match.group(1).replace('.', '/')}/Class{index+1}.java"
+        for line in lines:
+            # 如果行看起来像说明文字而不是代码，跳过
+            stripped = line.strip()
+            if (stripped.startswith('//') and len(stripped) > 20 and '瓶颈' in stripped) or \
+               (stripped.startswith('/*') and '优化' in stripped) or \
+               (stripped.startswith('*') and '建议' in stripped):
+                # 这可能是说明文字，跳过
+                continue
+            cleaned_lines.append(line)
         
-        # 尝试从类名推断
-        class_match = re.search(r'class\s+([A-Za-z_][A-Za-z0-9_]*)', code_content)
-        if class_match:
-            base_name = class_match.group(1)
-            ext = self._get_extension_by_language(lang)
-            return f"{base_name}{ext}"
-        
-        # 默认文件名
-        ext = self._get_extension_by_language(lang)
-        return f"file_{index+1}{ext}"
-
-    def _get_extension_by_language(self, lang: str) -> str:
-        """根据语言获取文件扩展名"""
-        lang_to_ext = {
-            'cpp': '.cpp', 'c': '.c', 'python': '.py', 'java': '.java',
-            'javascript': '.js', 'typescript': '.ts', 'html': '.html',
-            'css': '.css', 'markdown': '.md', 'md': '.md',
-            'json': '.json', 'xml': '.xml', 'yaml': '.yaml', 'yml': '.yml',
-            'sql': '.sql', 'bash': '.sh', 'shell': '.sh',
-            'go': '.go', 'rust': '.rs', 'swift': '.swift'
-        }
-        return lang_to_ext.get(lang, f'.{lang}' if lang else '.txt')
+        return '\n'.join(cleaned_lines)

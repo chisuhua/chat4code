@@ -143,29 +143,13 @@ class CodeProjectAIHelper:
                 markdown_lines.append("**请按照以下要求执行任务**:")
                 markdown_lines.append(task_info['prompt'])
                 markdown_lines.append("")
-                if task_info.get('response_format'):
-                    markdown_lines.append(f"**响应格式要求**:")
-                    markdown_lines.append("```")
-                    markdown_lines.append(task_info['response_format'])
-                    markdown_lines.append("```")
-                    markdown_lines.append("")
-                if task_info.get('response_example'):
-                    markdown_lines.append("**响应格式示例**:")
-                    markdown_lines.append("```markdown")
-                    markdown_lines.append(task_info['response_example'])
-                    markdown_lines.append("```")
-                    markdown_lines.append("")
-                    markdown_lines.append("---")
-                    markdown_lines.append("")
+                markdown_lines.append("---")
+                markdown_lines.append("")
             else:
                 # 只在屏幕上显示任务提示，不在导出文件中包含
                 print("\n=== AI任务提示 ===")
                 print("请按照以下要求执行任务:")
                 print(task_info['prompt'])
-                print("\n响应格式要求:")
-                print(task_info['response_format'])
-                print("\n响应格式示例:")
-                print(task_info['response_example'])
                 print("==================\n")
         
         # 遍历文件
@@ -233,7 +217,7 @@ class CodeProjectAIHelper:
                                flexible_parsing: bool = True,
                                show_diff: bool = False) -> Dict:
         """
-        应用Markdown响应到本地目录，支持差异显示
+        应用Markdown响应到本地目录，支持差异显示和支持文件删除操作
         """
         # 使用配置中的默认值
         if markdown_file is None:
@@ -268,6 +252,7 @@ class CodeProjectAIHelper:
         result = {
             'success': [],
             'failed': [],
+            'deleted': [],  # 新增：记录删除的文件
             'total': len(files),
             'parsed_files': [f[0] for f in files],
             'diffs': []  # 用于存储差异信息
@@ -275,6 +260,34 @@ class CodeProjectAIHelper:
         
         for file_path, lang, content in files:
             try:
+                # 检查是否为删除操作
+                if lang == 'deleted' or content == 'DELETED':
+                    # 删除文件操作
+                    full_path = os.path.join(dst_dir, file_path)
+                    if os.path.exists(full_path):
+                        if create_backup:
+                            backup_path = f"{full_path}.backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                            os.rename(full_path, backup_path)
+                            print(f"🗑️  删除文件 (已备份): {full_path}")
+                            result['deleted'].append({
+                                'file': full_path,
+                                'backup': backup_path
+                            })
+                        else:
+                            os.remove(full_path)
+                            print(f"🗑️  删除文件: {full_path}")
+                            result['deleted'].append({
+                                'file': full_path,
+                                'backup': None
+                            })
+                    else:
+                        print(f"⚠️  文件不存在，无法删除: {full_path}")
+                        result['failed'].append({
+                            'file': file_path,
+                            'error': '文件不存在，无法删除'
+                        })
+                    continue
+                
                 # 构建完整路径
                 full_path = os.path.join(dst_dir, file_path)
                 
@@ -332,13 +345,15 @@ class CodeProjectAIHelper:
         
         # 输出统计信息
         print(f"\n📊 处理完成: {len(result['success'])}/{result['total']} 个文件成功")
+        if result['deleted']:
+            print(f"🗑️  {len(result['deleted'])} 个文件被删除")
         if result['failed']:
             print("❌ 失败的文件:")
             for item in result['failed']:
                 print(f"   - {item['file']}: {item['error']}")
         
         # 显示详细差异报告
-        if show_diff and result['diffs']:
+        if show_diff and (result['diffs'] or result['deleted']):
             print("\n📝 差异详情:")
             print("=" * 50)
             for diff_info in result['diffs']:
@@ -350,6 +365,14 @@ class CodeProjectAIHelper:
                     print(f"      - 删除 {diff_info['diff']['lines_removed']} 行")
                 if diff_info['diff']['lines_modified'] > 0:
                     print(f"      ~ 修改 {diff_info['diff']['lines_modified']} 行")
+            
+            # 显示删除的文件
+            if result['deleted']:
+                print(f"\n🗑️  删除的文件:")
+                for deleted_info in result['deleted']:
+                    print(f"   - {deleted_info['file']}")
+                    if deleted_info['backup']:
+                        print(f"     (已备份: {deleted_info['backup']})")
         
         return result
 

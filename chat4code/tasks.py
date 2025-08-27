@@ -84,7 +84,7 @@ class TaskManager:
 
     def _expand_template_in_text(self, text: str, context: Dict) -> str:
         """在文本中展开模板引用"""
-        # 查找 {{template_name:param=value,param2=value2}} 格式的模板引用
+        # 查找 {template_name:param=value,param2=value2} 格式的模板引用
         def replace_template(match: Match) -> str:
             template_ref = match.group(1)
             
@@ -118,7 +118,7 @@ class TaskManager:
                 return match.group(0)
         
         # 使用正则表达式查找并替换模板引用
-        pattern = r'\{\{\s*([^}]+)\s*\}\}'
+        pattern = r'\{([^}]+)\}'
         return re.sub(pattern, replace_template, text)
 
     def get_task_info(self, task_key: str, project_type: str = "generic") -> dict:
