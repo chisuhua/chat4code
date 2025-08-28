@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 chat4code 命令行接口模块
 """
@@ -10,7 +12,7 @@ from .session import SessionManager
 def main():
     """主函数 - 命令行接口"""
     parser = argparse.ArgumentParser(
-        description="chat4code - 讠让代码与AI对话更简单",
+        description="chat4code - 让代码与AI对话更简单",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
@@ -430,7 +432,7 @@ def _interactive_export(helper, args):
             i += 1
         elif args[i].startswith('--'):
             # 跳过其他标志
-            i += 1
+            i += 2 if i + 1 < len(args) and not args[i + 1].startswith('--') else 1
         else:
             # 收集源目录，最后一个（如果是文件）作为输出文件
             src_dirs.append(args[i])
@@ -453,20 +455,6 @@ def _interactive_export(helper, args):
     if src_dirs and ('.' in os.path.splitext(src_dirs[-1])[1] or src_dirs[-1].endswith(('.md', '.txt', '.markdown'))):
         output_file = src_dirs.pop()
     
-    # 如果没有指定输出文件，询问用户是否使用自动序列化文件名
-    if not output_file:
-        export_pattern = helper.config_manager.get_export_filename_pattern()
-        export_dir = helper.config_manager.get_export_output_dir()
-        auto_filename = helper.get_next_sequential_filename(export_pattern, export_dir)
-        
-        use_auto = input(f"使用自动序列化文件名 '{auto_filename}'? (Y/n): ").strip().lower()
-        if use_auto != 'n':
-            output_file = auto_filename
-        else:
-            output_file = input("请输入输出文件名 (回车跳过，输出到控制台): ").strip()
-            if not output_file:
-                output_file = None
-    
     # 如果没有指定任务，询问用户
     if not task:
         use_task = input("是否指定任务? (y/N): ").strip().lower()
@@ -485,8 +473,26 @@ def _interactive_export(helper, args):
     # 如果是 add_feature 任务且没有指定具体内容，询问用户输入
     if task == "add_feature" and not task_content:
         task_content = input("请输入具体功能需求: ").strip()
-    
-    # 询问是否在导出文件中包含任务提示
+
+    # 如果没有指定输出文件，根据任务自动生成文件名
+    if not output_file:
+        export_dir = helper.config_manager.get_export_output_dir()
+        if task:
+            # 使用任务名作为文件名基础，并自动生成序号
+            export_pattern = f"{task}_{{}}.md"
+        else:
+            # 如果没有任务，使用配置中的默认模式
+            export_pattern = helper.config_manager.get_export_filename_pattern()
+        
+        try:
+            auto_filename = helper.get_next_sequential_filename(export_pattern, export_dir)
+            print(f"自动生成的输出文件名: {auto_filename}")
+            output_file = auto_filename
+        except Exception as e:
+            print(f"⚠️ 生成自动文件名时出错: {e}，使用默认名称")
+            output_file = "export_output.md"
+
+    # 询问是否在导出文件中包含任务提示 (仅当有任务且有输出文件时)
     if task and output_file:
         include_prompt = input("是否在导出文件中包含任务提示? (Y/n): ").strip().lower()
         if include_prompt != 'n':
@@ -500,7 +506,8 @@ def _interactive_export(helper, args):
             custom_task_content=task_content
         )
         print("✅ 导出完成! ")
-        print(f"   导出文件: {result_file}")
+        if result_file:
+            print(f"   导出文件: {result_file}")
     except Exception as e:
         print(f"❌ 导出失败: {e}")
 
@@ -678,3 +685,4 @@ def _show_extensions(helper):
 
 if __name__ == "__main__":
     main()
+

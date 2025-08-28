@@ -196,6 +196,7 @@ class CodeProjectAIHelper:
                 markdown_lines.append("## AI任务提示")
                 markdown_lines.append(" ")
                 markdown_lines.append("**请按照以下要求执行任务**: ")
+                markdown_lines.append(" ")
                 markdown_lines.append(task_info['prompt'])
                 markdown_lines.append(" ")
                 markdown_lines.append("---")
@@ -436,11 +437,14 @@ class CodeProjectAIHelper:
     def _should_exclude_file(self, file_path: str, exclude_patterns: List[str]) -> bool:
         """检查文件是否应该被排除"""
         for pattern in exclude_patterns:
+            # 直接使用 fnmatch 进行模式匹配
             if fnmatch.fnmatch(file_path, pattern):
                 return True
-            # 也检查目录模式
-            if pattern.endswith('/') and file_path.startswith(pattern):
-                return True
+            # 对于目录模式，也匹配该目录下的所有文件
+            if pattern.endswith('/'):
+                if fnmatch.fnmatch(file_path, pattern.rstrip('/') + '/*') or \
+                fnmatch.fnmatch(file_path, pattern.rstrip('/') + '/**/*'):
+                    return True
         return False
 
     def _detect_project_type_multi(self, src_dirs: List[str], extensions: tuple = None) -> str:
