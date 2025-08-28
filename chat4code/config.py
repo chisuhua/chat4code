@@ -28,7 +28,8 @@ class ConfigManager:
             "project_type": None,
             "development_mode": "batch",
             # 新增的默认路径和文件名配置
-            "default_source_dir": ".",
+            # 修改为支持多个源目录
+            "default_source_dirs": ["."],
             "default_target_dir": "./updated_project",
             "export_filename_pattern": "req.md",
             "import_filename_pattern": "resp.md",
@@ -103,9 +104,14 @@ class ConfigManager:
         """获取开发模式"""
         return self.config.get("development_mode", self.default_config["development_mode"])
 
-    def get_default_source_dir(self) -> str:
-        """获取默认源目录"""
-        return self.config.get("default_source_dir", self.default_config["default_source_dir"])
+    # 修改获取默认源目录的方法，支持多个目录
+    def get_default_source_dirs(self) -> List[str]:
+        """获取默认源目录列表"""
+        source_dirs = self.config.get("default_source_dirs", self.default_config["default_source_dirs"])
+        # 确保返回的是列表格式
+        if isinstance(source_dirs, str):
+            return [source_dirs]
+        return source_dirs
 
     def get_default_target_dir(self) -> str:
         """获取默认目标目录"""

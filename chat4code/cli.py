@@ -80,16 +80,16 @@ def main():
     if args.list_tasks:
         tasks = helper.task_manager.list_tasks()
         print("=== 可用任务模板 ===")
-        print("")
+        print(" ")
         for key, task in tasks.items():
             print(f"{key}: {task['name']}")
             print(f"  描述: {task['description']}")
-            print("")
+            print(" ")
         return
     
     # 处理 --list-extensions 参数
     if args.list_extensions:
-        print("支持的文件扩展名:")
+        print("支持的文件扩展名: ")
         for ext in helper.list_supported_extensions():
             print(f"  {ext}")
         return
@@ -99,58 +99,59 @@ def main():
         print(helper.task_manager.show_task_format(args.task_format))
         return
     
-    # 处理 help 动作
+    # 处理 help 动作 
     if args.action == 'help' or not args.action:
         instructions = [
             "=== chat4code 使用说明 ===",
-            "",
-            "基本用法:",
-            "1. 导出项目代码为Markdown格式:",
+            " ",
+            "基本用法: ",
+            "1. 导出项目代码为Markdown格式: ",
             "   python -m chat4code export ./my_project project.md",
             "   python -m chat4code export ./my_project project.md --task analyze",
             "   python -m chat4code export ./my_project  # 输出到控制台",
-            "",
-            "2. 增量导出:",
+            "   python -m chat4code export ex* project.md  # 使用模式匹配导出",
+            " ",
+            "2. 增量导出: ",
             "   python -m chat4code export ./my_project changes.md --incremental",
             "   python -m chat4code export ./my_project changes.md --since 2024-01-01",
-            "",
-            "3. 将AI生成的Markdown应用到本地:",
+            " ",
+            "3. 将AI生成的Markdown应用到本地: ",
             "   python -m chat4code apply response.md ./updated_project",
             "   python -m chat4code apply response.md ./updated_project --show-diff",
-            "",
-            "4. 任务提示处理:",
+            " ",
+            "4. 任务提示处理: ",
             "   python -m chat4code export ./my_project project.md --task analyze  # 任务提示显示在屏幕",
             "   python -m chat4code export ./my_project project.md --task analyze --task-prompt  # 任务提示包含在文件中",
-            "",
-            "5. 配置管理:",
+            " ",
+            "5. 配置管理: ",
             "   python -m chat4code --config-init  # 初始化配置文件",
             "   python -m chat4code --config-show   # 显示当前配置",
-            "",
-            "6. 交互模式:",
+            " ",
+            "6. 交互模式: ",
             "   python -m chat4code --interactive   # 启动交互式模式",
-            "",
-            "7. 验证AI响应格式:",
+            " ",
+            "7. 验证AI响应格式: ",
             "   python -m chat4code validate response.md",
             "   python -m chat4code validate response.md --verbose",
-            "",
-            "8. 查看可用任务模板:",
+            " ",
+            "8. 查看可用任务模板: ",
             "   python -m chat4code --list-tasks",
-            "",
-            "9. 查看任务特定格式要求:",
+            " ",
+            "9. 查看任务特定格式要求: ",
             "   python -m chat4code --task-format analyze",
-            "",
-            "10. 会话管理:",
+            " ",
+            "10. 会话管理: ",
             "    python -m chat4code session start my_session",
             "    python -m chat4code session log --task \"分析代码\" --desc \"分析项目结构\" my_session",
             "    python -m chat4code session history my_session",
             "    python -m chat4code session list",
-            "",
-            "11. 调试解析:",
+            " ",
+            "11. 调试解析: ",
             "    python -m chat4code debug-parse response.md",
-            "",
-            "支持的文件类型:",
-            ", ".join(helper.list_supported_extensions()),
-            ""
+            " ",
+            "支持的文件类型: ",
+            ",  ".join(helper.list_supported_extensions()),
+            " "
         ]
         print("\n".join(instructions))
         return
@@ -181,7 +182,7 @@ def main():
                 print("❌ 错误: 需要指定会话名称")
                 return
             session_name = args.paths[1]
-            print(session_manager.log_task(session_name, args.session_task, args.description or ""))
+            print(session_manager.log_task(session_name, args.session_task, args.description or " "))
         
         elif sub_action == 'history':
             if len(args.paths) < 2:
@@ -190,7 +191,7 @@ def main():
             session_name = args.paths[1]
             print(session_manager.show_session_history(session_name))
         
-        elif sub_action == 'list':
+        elif sub_action == 'list': 
             print(session_manager.list_sessions())
         
         else:
@@ -212,28 +213,28 @@ def main():
             
             validation_result = helper.validate_response_format(content, args.verbose)
             
-            print(f"格式验证结果:")
+            print(f"格式验证结果: ")
             print(f"  有效: {'✅ 是' if validation_result['is_valid'] else '❌ 否'}")
             print(f"  格式类型: {validation_result['format_type']}")
             print(f"  文件数: {validation_result['file_count']}")
             
             if validation_result['files']:
-                print(f"  文件列表:")
+                print(f"  文件列表: ")
                 for file in validation_result['files']:
                     print(f"    - {file}")
             
             if validation_result['warnings']:
-                print(f"  ⚠️  警告:")
+                print(f"  ⚠️  警告: ")
                 for warning in validation_result['warnings']:
                     print(f"    - {warning}")
             
             if validation_result['issues']:
-                print(f"  ❌ 问题:")
+                print(f"  ❌ 问题: ")
                 for issue in validation_result['issues']:
                     print(f"    - {issue}")
             
             if args.verbose and 'details' in validation_result:
-                print(f"  详细信息:")
+                print(f"  详细信息: ")
                 print(f"    解析方法: {validation_result['details']['method']}")
                 print(f"    提取文件数: {len(validation_result['details']['extracted_files'])}")
                     
@@ -249,7 +250,7 @@ def main():
     
         markdown_file = args.paths[0]
         if '--detailed' in args.paths or '-d' in args.paths:
-            helper.debug_parse_detailed(markdown_file)
+            helper.debug_parse_detailed(markdown_file) 
         else:
             helper.debug_parse_response(markdown_file)
         return
@@ -276,15 +277,27 @@ def main():
         if len(args.paths) < 1:
             print("❌ 错误: export操作需要指定源目录")
             print("用法: python -m chat4code export <源目录> [输出文件]")
+            print("示例: python -m chat4code export dir1 dir2 output.md")
+            print("示例: python -m chat4code export ex* output.md")
             return
         
-        src_dir = args.paths[0]
-        output_file = args.paths[1] if len(args.paths) > 1 else None
+        # 所有参数除了最后一个都是源目录，最后一个（如果存在）是输出文件
+        src_dirs = args.paths[:-1] if len(args.paths) > 1 else args.paths
+        output_file = args.paths[-1] if len(args.paths) > 1 and not args.paths[-1].endswith(('.md', '.txt', '.markdown')) and os.path.splitext(args.paths[-1])[1] == '' else \
+                     args.paths[-1] if len(args.paths) > 1 else None
+        
+        # 如果最后一个参数看起来像文件名，则它是输出文件，其余是源目录
+        if len(args.paths) > 1 and (args.paths[-1].endswith(('.md', '.txt', '.markdown')) or '.' in os.path.splitext(args.paths[-1])[1]):
+            src_dirs = args.paths[:-1]
+            output_file = args.paths[-1]
+        else:
+            src_dirs = args.paths
+            output_file = None
         
         extensions = tuple(args.ext) if args.ext else helper.default_extensions
         try:
             helper.export_to_markdown(
-                src_dir, output_file, extensions, args.task,
+                src_dirs, output_file, extensions, args.task,
                 args.incremental, args.since_time,
                 args.task_prompt  # 使用 --task-prompt 参数
             )
@@ -326,7 +339,7 @@ def interactive_mode():
     
     while True:
         try:
-            command = input("chat4code> ").strip()
+            command = input("chat4code > ").strip()
             
             if not command:
                 continue
@@ -371,14 +384,14 @@ def _show_interactive_help():
     """显示交互式模式帮助"""
     help_text = """
 可用命令:
-  export [目录] [文件] [--task 任务] [--incremental] [--task-prompt]  导出项目代码
+  export [目录1] [目录2] ... [文件] [--task 任务] [--incremental] [--task-prompt]  导出项目代码
   apply [文件] [目录] [--show-diff] [--no-backup]                     应用AI响应
-  validate [文件]                                                     验证响应格式
+  validate [文件]                                                      验证响应格式
   session start|log|history|list [参数]                               会话管理
-  config init|show                                                    配置管理
+  config init|show                                                     配置管理
   tasks                                                               显示可用任务
   extensions                                                          显示支持的扩展名
-  help                                                                显示此帮助
+  help                                                                 显示此帮助
   quit/exit                                                           退出程序
     """
     print(help_text)
@@ -386,7 +399,7 @@ def _show_interactive_help():
 def _interactive_export(helper, args):
     """交互式导出"""
     # 解析参数
-    src_dir = None
+    src_dirs = []
     output_file = None
     task = None
     incremental = False
@@ -404,28 +417,33 @@ def _interactive_export(helper, args):
         elif args[i] == '--task-prompt':
             include_task_prompt = True
             i += 1
-        elif src_dir is None:
-            src_dir = args[i]
-            i += 1
-        elif output_file is None:
-            output_file = args[i]
+        elif args[i].startswith('--'):
+            # 跳过其他标志
             i += 1
         else:
+            # 收集源目录，最后一个（如果是文件）作为输出文件
+            src_dirs.append(args[i])
             i += 1
     
     # 如果没有指定源目录，使用配置默认值或询问用户
-    if src_dir is None:
-        default_src = helper.config_manager.get_default_source_dir()
-        use_default = input(f"使用默认源目录 '{default_src}'? (Y/n): ").strip().lower()
+    if not src_dirs:
+        default_srcs = helper.config_manager.get_default_source_dirs()
+        use_default = input(f"使用默认源目录 '{', '.join(default_srcs)}'? (Y/n): ").strip().lower()
         if use_default != 'n':
-            src_dir = default_src
+            src_dirs = default_srcs
         else:
-            src_dir = input("请输入源目录路径: ").strip()
-            if not src_dir:
-                src_dir = "."
+            src_input = input("请输入源目录路径（多个目录用空格分隔）: ").strip()
+            if src_input:
+                src_dirs = src_input.split()
+            else:
+                src_dirs = ["."]
+    
+    # 确定输出文件（最后一个参数如果是文件名）
+    if src_dirs and ('.' in os.path.splitext(src_dirs[-1])[1] or src_dirs[-1].endswith(('.md', '.txt', '.markdown'))):
+        output_file = src_dirs.pop()
     
     # 如果没有指定输出文件，询问用户是否使用自动序列化文件名
-    if output_file is None:
+    if not output_file:
         export_pattern = helper.config_manager.get_export_filename_pattern()
         export_dir = helper.config_manager.get_export_output_dir()
         auto_filename = helper.get_next_sequential_filename(export_pattern, export_dir)
@@ -443,7 +461,7 @@ def _interactive_export(helper, args):
         use_task = input("是否指定任务? (y/N): ").strip().lower()
         if use_task == 'y':
             tasks = list(helper.task_manager.list_tasks().keys())
-            print("可用任务:")
+            print("可用任务: ")
             for i, t in enumerate(tasks, 1):
                 print(f"  {i}. {t}")
             try:
@@ -461,11 +479,11 @@ def _interactive_export(helper, args):
     
     try:
         result_file = helper.export_to_markdown(
-            src_dir, output_file, task=task, 
+            src_dirs, output_file, task=task, 
             incremental=incremental, 
             include_task_prompt=include_task_prompt
         )
-        print("✅ 导出完成!")
+        print("✅ 导出完成! ")
         print(f"   导出文件: {result_file}")
     except Exception as e:
         print(f"❌ 导出失败: {e}")
@@ -519,7 +537,7 @@ def _interactive_apply(helper, args):
             create_backup=not no_backup,
             show_diff=show_diff
         )
-        print("✅ 应用完成!")
+        print("✅ 应用完成! ")
     except Exception as e:
         print(f"❌ 应用失败: {e}")
 
@@ -539,23 +557,23 @@ def _interactive_validate(helper, args):
         
         validation_result = helper.validate_response_format(content, verbose=True)
         
-        print(f"\n格式验证结果:")
+        print(f"\n格式验证结果: ")
         print(f"  有效: {'✅ 是' if validation_result['is_valid'] else '❌ 否'}")
         print(f"  格式类型: {validation_result['format_type']}")
         print(f"  文件数: {validation_result['file_count']}")
         
         if validation_result['files']:
-            print(f"  文件列表:")
+            print(f"  文件列表: ")
             for file in validation_result['files']:
                 print(f"    - {file}")
         
         if validation_result['warnings']:
-            print(f"  ⚠️  警告:")
+            print(f"  ⚠️  警告: ")
             for warning in validation_result['warnings']:
                 print(f"    - {warning}")
         
         if validation_result['issues']:
-            print(f"  ❌ 问题:")
+            print(f"  ❌ 问题: ")
             for issue in validation_result['issues']:
                 print(f"    - {issue}")
                 
@@ -580,7 +598,7 @@ def _interactive_session(session_manager, args):
     elif sub_action == 'log':
         session_name = args[-1] if len(args) > 1 else input("请输入会话名称: ").strip()
         task = None
-        description = ""
+        description = " "
         
         # 查找任务参数
         for i, arg in enumerate(args):
@@ -638,7 +656,7 @@ def _show_tasks(helper):
 
 def _show_extensions(helper):
     """显示支持的扩展名"""
-    print("支持的文件扩展名:")
+    print("支持的文件扩展名: ")
     for ext in helper.list_supported_extensions():
         print(f"  {ext}")
 

@@ -7,12 +7,13 @@ import json
 import hashlib
 import re
 from datetime import datetime
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, Set
 from .tasks import TaskManager
 from .parser import ResponseParser
 from .validator import ResponseValidator
 from .config import ConfigManager
 import fnmatch
+import glob
 
 class CodeProjectAIHelper:
     def __init__(self):
@@ -72,23 +73,67 @@ class CodeProjectAIHelper:
         new_filename = f"{base_name}{next_num}{ext}"
         return os.path.join(output_dir, new_filename)
 
-    def export_to_markdown(self, src_dir: str = None, output_file: str = None, 
+    def _match_source_dirs(self, src_dirs: List[str], base_dir: str = ".") -> List[str]:
+        """
+        根据模式匹配源目录
+        支持通配符如 'ex*' 匹配 ex 开头的目录
+        """
+        matched_dirs = []
+        if not src_dirs:
+            return [base_dir]
+            
+        for src_dir in src_dirs:
+            # 如果是绝对路径或已包含路径分隔符，则直接使用
+            if os.path.isabs(src_dir) or os.sep in src_dir or (os.altsep and os.altsep in src_dir):
+                if os.path.exists(src_dir):
+                    matched_dirs.append(src_dir)
+                else:
+                    print(f"⚠️ 指定的源目录不存在: {src_dir}")
+            else:
+                # 在 base_dir 下查找匹配的目录
+                search_path = os.path.join(base_dir, src_dir)
+                if '*' in src_dir or '?' in src_dir:
+                    # 使用 glob 匹配
+                    matches = glob.glob(search_path)
+                    for match in matches:
+                        if os.path.isdir(match):
+                            matched_dirs.append(match)
+                else:
+                    # 直接检查目录是否存在
+                    if os.path.exists(search_path) and os.path.isdir(search_path):
+                        matched_dirs.append(search_path)
+                    else:
+                        print(f"⚠️ 指定的源目录不存在: {search_path}")
+        
+        if not matched_dirs:
+            print("⚠️ 未找到匹配的源目录，使用默认目录")
+            matched_dirs = [base_dir]
+            
+        return matched_dirs
+
+    def export_to_markdown(self, src_dirs: List[str] = None, output_file: str = None, 
                           extensions: tuple = None, task: str = None,
                           incremental: bool = False, since_time: str = None,
                           include_task_prompt: bool = False) -> str:
         """
         导出代码到Markdown，支持增量导出和智能任务提示
         默认任务提示显示在屏幕上，使用 --task-prompt 时包含在导出文件中
+        支持多个源目录和模式匹配
         """
         # 使用配置中的默认值
-        if src_dir is None:
-            src_dir = self.config_manager.get_default_source_dir()
+        if src_dirs is None:
+            src_dirs = self.config_manager.get_default_source_dirs()
+        
+        # 匹配源目录
+        matched_src_dirs = self._match_source_dirs(src_dirs)
         
         if extensions is None:
             extensions = self.default_extensions
             
-        if not os.path.exists(src_dir):
-            raise FileNotFoundError(f"源目录不存在: {src_dir}")
+        # 检查所有源目录是否存在
+        for src_dir in matched_src_dirs:
+            if not os.path.exists(src_dir):
+                raise FileNotFoundError(f"源目录不存在: {src_dir}")
         
         # 如果没有指定输出文件，使用序列化文件名
         if output_file is None:
@@ -101,22 +146,22 @@ class CodeProjectAIHelper:
         output_dir = os.path.dirname(output_file)
         if output_dir and not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        
+         
         # 检测项目类型（支持配置强制指定）
-        project_type = self._detect_project_type(src_dir, extensions)
+        project_type = self._detect_project_type_multi(matched_src_dirs, extensions)
         
         # 如果是增量导出，获取变更的文件
         changed_files = None
         if incremental:
-            changed_files = self._get_changed_files(src_dir, since_time)
+            changed_files = self._get_changed_files_multi(matched_src_dirs, since_time)
         
         markdown_lines = []
         
         # 添加标题和基本信息
-        markdown_lines.append(f"# 项目代码导出")
-        markdown_lines.append(f"项目名称: {os.path.basename(os.path.abspath(src_dir))}")
+        markdown_lines.append("# 项目代码导出")
+        markdown_lines.append(f"项目名称: {', '.join([os.path.basename(os.path.abspath(src_dir)) for src_dir in matched_src_dirs])}")
         markdown_lines.append(f"导出时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        markdown_lines.append(f"源目录: {os.path.abspath(src_dir)}")
+        markdown_lines.append(f"源目录: {', '.join([os.path.abspath(src_dir) for src_dir in matched_src_dirs])}")
         markdown_lines.append(f"项目类型: {project_type}")
         if self.config_manager.get_project_type():
             markdown_lines.append("类型来源: 配置指定")
@@ -128,9 +173,9 @@ class CodeProjectAIHelper:
                 markdown_lines.append(f"自时间: {since_time}")
             else:
                 markdown_lines.append("自上次导出以来的变更")
-        markdown_lines.append("")
+        markdown_lines.append(" ")
         markdown_lines.append("---")
-        markdown_lines.append("")
+        markdown_lines.append(" ")
         
         # 如果有任务，处理任务提示
         task_info = None
@@ -139,64 +184,65 @@ class CodeProjectAIHelper:
             if include_task_prompt:
                 # 在导出文件中包含任务提示
                 markdown_lines.append("## AI任务提示")
-                markdown_lines.append("")
-                markdown_lines.append("**请按照以下要求执行任务**:")
+                markdown_lines.append(" ")
+                markdown_lines.append("**请按照以下要求执行任务**: ")
                 markdown_lines.append(task_info['prompt'])
-                markdown_lines.append("")
+                markdown_lines.append(" ")
                 markdown_lines.append("---")
-                markdown_lines.append("")
+                markdown_lines.append(" ")
             else:
                 # 只在屏幕上显示任务提示，不在导出文件中包含
                 print("\n=== AI任务提示 ===")
-                print("请按照以下要求执行任务:")
+                print("请按照以下要求执行任务: ")
                 print(task_info['prompt'])
                 print("==================\n")
         
-        # 遍历文件
+        # 遍历所有匹配的目录
         file_count = 0
-        for root, _, files in os.walk(src_dir):
-            for file in files:
-                if file.endswith(extensions):
-                    file_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(file_path, src_dir)
-                    
-                    # 检查是否应该排除此文件
-                    if self._should_exclude_file(rel_path, self.exclude_patterns):
-                        continue
-                    
-                    # 如果是增量导出，只处理变更的文件
-                    if incremental and changed_files is not None:
-                        if rel_path not in changed_files:
+        for src_dir in matched_src_dirs:
+            for root, _, files in os.walk(src_dir):
+                for file in files:
+                    if file.endswith(extensions):
+                        file_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(file_path, src_dir)
+                        
+                        # 检查是否应该排除此文件
+                        if self._should_exclude_file(rel_path, self.exclude_patterns):
                             continue
-                    
-                    # 添加文件标题
-                    markdown_lines.append(f"## {rel_path}")
-                    markdown_lines.append("")
-                    
-                    # 确定代码语言
-                    lang = self._get_language_by_extension(file)
-                    markdown_lines.append(f"```{lang}")
-                    
-                    # 读取文件内容
-                    try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            content = f.read()
+                        
+                        # 如果是增量导出，只处理变更的文件
+                        if incremental and changed_files is not None:
+                            if rel_path not in changed_files:
+                                continue
+                        
+                        # 添加文件标题
+                        markdown_lines.append(f"## {rel_path}")
+                        markdown_lines.append(" ")
+                        
+                        # 确定代码语言
+                        lang = self._get_language_by_extension(file)
+                        markdown_lines.append(f"```{lang}")
+                        
+                        # 读取文件内容
+                        try:
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                content = f.read()
                             markdown_lines.append(content)
-                    except UnicodeDecodeError:
-                        markdown_lines.append("[该文件无法读取，请检查编码或文件类型]")
-                    except Exception as e:
-                        markdown_lines.append(f"[读取文件时发生错误: {str(e)}]")
-                    
-                    markdown_lines.append("```")
-                    markdown_lines.append("")
-                    file_count += 1
+                        except UnicodeDecodeError:
+                            markdown_lines.append("[该文件无法读取，请检查编码或文件类型]")
+                        except Exception as e:
+                            markdown_lines.append(f"[读取文件时发生错误: {str(e)}]")
+                        
+                        markdown_lines.append("```")
+                        markdown_lines.append(" ")
+                        file_count += 1
         
         if file_count == 0:
             markdown_lines.append("## 未找到匹配的代码文件")
             if incremental:
                 markdown_lines.append("自上次导出以来没有文件变更")
             markdown_lines.append(f"请检查目录路径和文件扩展名: {', '.join(extensions)}")
-            markdown_lines.append("")
+            markdown_lines.append(" ")
         
         markdown_content = "\n".join(markdown_lines)
         
@@ -209,7 +255,7 @@ class CodeProjectAIHelper:
             
             # 保存导出元数据（用于增量导出）
             if not incremental:
-                self._save_export_metadata(src_dir, output_file)
+                self._save_export_metadata_multi(matched_src_dirs, output_file)
         else:
             # 输出到控制台
             print(markdown_content)
@@ -217,9 +263,9 @@ class CodeProjectAIHelper:
         return output_file
 
     def apply_markdown_response(self, markdown_file: str = None, dst_dir: str = None, 
-                               create_backup: bool = None, 
-                               flexible_parsing: bool = True,
-                               show_diff: bool = False) -> Dict:
+                                create_backup: bool = None, 
+                                flexible_parsing: bool = True,
+                                show_diff: bool = False) -> Dict:
         """
         应用Markdown响应到本地目录，支持差异显示
         """
@@ -349,14 +395,14 @@ class CodeProjectAIHelper:
         # 输出统计信息
         print(f"\n📊 处理完成: {len(result['success'])}/{result['total']} 个文件成功")
         if result['failed']:
-            print("❌ 失败的文件:")
+            print("❌ 失败的文件: ")
             for item in result['failed']:
                 print(f"   - {item['file']}: {item['error']}")
         
         # 显示详细差异报告
         if show_diff and (result['diffs'] or result['deleted']):
-            print("\n📝 差异详情:")
-            print("=" * 50)
+            print("\n📝 差异详情: ")
+            print("= " * 50)
             for diff_info in result['diffs']:
                 print(f"\n文件: {diff_info['file']}")
                 print(f"差异: {diff_info['diff']['summary']}")
@@ -367,9 +413,9 @@ class CodeProjectAIHelper:
                 if diff_info['diff']['lines_modified'] > 0:
                     print(f"      ~ 修改 {diff_info['diff']['lines_modified']} 行")
 
-             # 显示删除的文件
-            if result['deleted']:
-                print(f"\n🗑️  删除的文件:")
+            # 显示删除的文件
+            if 'deleted' in result and result['deleted']:
+                print(f"\n🗑️  删除的文件: ")
                 for deleted_info in result['deleted']:
                     print(f"   - {deleted_info['file']}")
                     if deleted_info['backup']:
@@ -387,9 +433,9 @@ class CodeProjectAIHelper:
                 return True
         return False
 
-    def _detect_project_type(self, src_dir: str, extensions: tuple = None) -> str:
+    def _detect_project_type_multi(self, src_dirs: List[str], extensions: tuple = None) -> str:
         """
-        检测项目类型（C++、Python、JavaScript等）
+        检测多个目录的项目类型（C++、Python、JavaScript等）
         如果配置中指定了项目类型，则使用配置的类型
         """
         # 首先检查配置中是否强制指定了项目类型
@@ -406,23 +452,24 @@ class CodeProjectAIHelper:
         cpp_extensions = {'.cpp', '.cc', '.cxx', '.c', '.h', '.hh', '.hpp'}
         python_extensions = {'.py'}
         js_extensions = {'.js', '.ts', '.jsx', '.tsx'}
-        
+         
         cpp_count = 0
         python_count = 0
         js_count = 0
         
-        for root, _, files in os.walk(src_dir):
-            for file in files:
-                if file.endswith(extensions):
-                    _, ext = os.path.splitext(file.lower())
-                    if ext in cpp_extensions:
-                        cpp_count += 1
-                    elif ext in python_extensions:
-                        python_count += 1
-                    elif ext in js_extensions:
-                        js_count += 1
+        for src_dir in src_dirs:
+            for root, _, files in os.walk(src_dir):
+                for file in files:
+                    if file.endswith(extensions):
+                        _, ext = os.path.splitext(file.lower())
+                        if ext in cpp_extensions:
+                            cpp_count += 1
+                        elif ext in python_extensions:
+                            python_count += 1
+                        elif ext in js_extensions:
+                            js_count += 1
         
-        print(f"🔍 项目类型检测结果:")
+        print(f"🔍 项目类型检测结果: ")
         print(f"   C++ 文件: {cpp_count} 个")
         print(f"   Python 文件: {python_count} 个")
         print(f"   JavaScript 文件: {js_count} 个")
@@ -439,6 +486,18 @@ class CodeProjectAIHelper:
         
         print(f"   检测到项目类型: {detected_type}")
         return detected_type
+
+    def _get_changed_files_multi(self, src_dirs: List[str], since_time: str = None) -> Set[str]:
+        """
+        获取多个目录中变更的文件列表
+        """
+        changed_files = set()
+        
+        for src_dir in src_dirs:
+            changed_in_dir = self._get_changed_files(src_dir, since_time)
+            changed_files.update(changed_in_dir)
+            
+        return changed_files
 
     def _get_changed_files(self, src_dir: str, since_time: str = None) -> set:
         """
@@ -472,7 +531,7 @@ class CodeProjectAIHelper:
                     
                     current_hashes = self._get_file_hashes(src_dir)
                     previous_hashes = metadata.get('file_hashes', {})
-                    
+                     
                     for file_path, current_hash in current_hashes.items():
                         # 检查是否应该排除
                         if self._should_exclude_file(file_path, self.exclude_patterns):
@@ -517,23 +576,28 @@ class CodeProjectAIHelper:
                         file_hash = hashlib.md5(content).hexdigest()
                         file_hashes[rel_path] = file_hash
                 except:
-                    file_hashes[rel_path] = ""
+                    file_hashes[rel_path] = " "
         return file_hashes
 
-    def _save_export_metadata(self, src_dir: str, output_file: str):
+    def _save_export_metadata_multi(self, src_dirs: List[str], output_file: str):
         """
-        保存导出元数据，用于增量导出
+        保存多个目录的导出元数据，用于增量导出
         """
         if not os.path.exists(self.metadata_dir):
             os.makedirs(self.metadata_dir)
         
+        all_file_hashes = {}
+        for src_dir in src_dirs:
+            dir_hashes = self._get_file_hashes(src_dir)
+            all_file_hashes.update(dir_hashes)
+            
         metadata = {
             'export_time': datetime.now().isoformat(),
-            'source_dir': os.path.abspath(src_dir),
+            'source_dirs': [os.path.abspath(src_dir) for src_dir in src_dirs],
             'output_file': os.path.abspath(output_file),
-            'file_hashes': self._get_file_hashes(src_dir)
+            'file_hashes': all_file_hashes
         }
-        
+         
         metadata_file = os.path.join(self.metadata_dir, "export_metadata.json")
         with open(metadata_file, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
@@ -571,7 +635,7 @@ class CodeProjectAIHelper:
         # 计算基本差异统计
         old_line_count = len(old_lines)
         new_line_count = len(new_lines)
-        
+         
         lines_added = max(0, new_line_count - old_line_count)
         lines_removed = max(0, old_line_count - new_line_count)
         
@@ -654,7 +718,7 @@ class CodeProjectAIHelper:
                 content = f.read()
             
             print("=== 详细解析调试 ===")
-            print("原始内容行数:", len(content.split('\n')))
+            print("原始内容行数: ", len(content.split('\n')))
             
             # 尝试标准解析
             print("\n--- 标准解析尝试 ---")
@@ -665,7 +729,7 @@ class CodeProjectAIHelper:
                 print(f"  文件 {i+1}: {file_path}")
                 print(f"  语言: {lang}")
                 print(f"  内容行数: {len(file_content.split())}")
-                print("  内容预览:")
+                print("  内容预览: ")
                 lines = file_content.split('\n')[:5]
                 for line in lines:
                     print(f"    {line}")
@@ -681,7 +745,7 @@ class CodeProjectAIHelper:
                     print(f"  文件 {i+1}: {file_path}")
                     print(f"  语言: {lang}")
                     print(f"  内容行数: {len(file_content.split())}")
-                    print("  内容预览:")
+                    print("  内容预览: ")
                     lines = file_content.split('\n')[:5]
                     for line in lines:
                         print(f"    {line}")

@@ -46,7 +46,7 @@
   "prompts_file": "./prompts.yaml",
   "project_type": "generic",
   "development_mode": "interactive", 
-  "default_source_dir": ".",
+  "default_source_dirs": ["./src", "./lib", "example*"],
   "default_target_dir": "./updated_project",
   "export_filename_pattern": "req.md",
   "import_filename_pattern": "resp.md",
