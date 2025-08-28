@@ -13,7 +13,6 @@ from .parser import ResponseParser
 from .validator import ResponseValidator
 from .config import ConfigManager
 import fnmatch
-import glob
 
 class CodeProjectAIHelper:
     def __init__(self):
@@ -94,6 +93,7 @@ class CodeProjectAIHelper:
                 search_path = os.path.join(base_dir, src_dir)
                 if '*' in src_dir or '?' in src_dir:
                     # 使用 glob 匹配
+                    import glob
                     matches = glob.glob(search_path)
                     for match in matches:
                         if os.path.isdir(match):
@@ -114,11 +114,13 @@ class CodeProjectAIHelper:
     def export_to_markdown(self, src_dirs: List[str] = None, output_file: str = None, 
                           extensions: tuple = None, task: str = None,
                           incremental: bool = False, since_time: str = None,
-                          include_task_prompt: bool = False) -> str:
+                          include_task_prompt: bool = False,
+                          custom_task_content: str = None) -> str:
         """
         导出代码到Markdown，支持增量导出和智能任务提示
         默认任务提示显示在屏幕上，使用 --task-prompt 时包含在导出文件中
         支持多个源目录和模式匹配
+        添加了 custom_task_content 参数用于自定义任务内容
         """
         # 使用配置中的默认值
         if src_dirs is None:
@@ -181,6 +183,14 @@ class CodeProjectAIHelper:
         task_info = None
         if task and self.task_manager.has_task(task):
             task_info = self.task_manager.get_task_info(task, project_type)
+            
+            # 如果提供了自定义任务内容，定制提示词
+            if custom_task_content and task == "add_feature":
+                customized_prompt = self.task_manager.customize_task_prompt(task, project_type, custom_task_content)
+                if customized_prompt:
+                    task_info = task_info.copy()  # 复制以避免修改原始任务信息
+                    task_info['prompt'] = customized_prompt
+            
             if include_task_prompt:
                 # 在导出文件中包含任务提示
                 markdown_lines.append("## AI任务提示")
@@ -400,7 +410,7 @@ class CodeProjectAIHelper:
                 print(f"   - {item['file']}: {item['error']}")
         
         # 显示详细差异报告
-        if show_diff and (result['diffs'] or result['deleted']):
+        if show_diff and (result['diffs'] or result.get('deleted')):
             print("\n📝 差异详情: ")
             print("= " * 50)
             for diff_info in result['diffs']:
@@ -414,7 +424,7 @@ class CodeProjectAIHelper:
                     print(f"      ~ 修改 {diff_info['diff']['lines_modified']} 行")
 
             # 显示删除的文件
-            if 'deleted' in result and result['deleted']:
+            if result.get('deleted'):
                 print(f"\n🗑️  删除的文件: ")
                 for deleted_info in result['deleted']:
                     print(f"   - {deleted_info['file']}")

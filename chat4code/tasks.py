@@ -6,7 +6,7 @@ import json
 import yaml
 import os
 import re
-from typing import Dict, Any, Match
+from typing import Dict, Any, Match, Optional
 from string import Template
 
 class TaskManager:
@@ -220,3 +220,25 @@ class TaskManager:
                 
             except Exception as e:
                 print(f"❌ 重新加载提示词文件失败: {e}")
+
+    def customize_task_prompt(self, task_key: str, project_type: str, custom_content: str) -> Optional[str]:
+        """
+        根据用户输入的具体内容定制任务提示
+        专门为 add_feature 任务设计，将 '[请在此处描述具体功能需求]' 替换为 custom_content
+        
+        Args:
+            task_key: 任务键名 (如 'add_feature')
+            project_type: 项目类型 (如 'generic', 'python')
+            custom_content: 用户提供的具体任务内容
+            
+        Returns:
+            定制后的提示字符串，如果任务不存在则返回 None
+        """
+        task_info = self.get_task_info(task_key, project_type)
+        if not task_info:
+            return None
+            
+        original_prompt = task_info.get('prompt', '')
+        # 替换占位符
+        customized_prompt = original_prompt.replace('[请在此处描述具体功能需求]', custom_content)
+        return customized_prompt

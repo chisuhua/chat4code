@@ -45,7 +45,8 @@ class ResponseParser:
                         
                         if code_content is not None:
                             # 检查是否为删除标记
-                            if language == 'deleted' or '// 此文件已被删除' in code_content:
+                            # 修改点：更严格的删除判断逻辑
+                            if self._is_delete_marker(language, code_content):
                                 # 标记为删除的文件
                                 files.append((clean_file_path, 'deleted', 'DELETED'))
                             else:
@@ -61,6 +62,29 @@ class ResponseParser:
                 i += 1
         
         return files
+
+    def _is_delete_marker(self, language: str, code_content: str) -> bool:
+        """
+        判断是否为删除标记
+        """
+        # 语言为 deleted 是明确的删除标记
+        if language == 'deleted':
+            return True
+        
+        # 检查代码内容的第一行是否为删除标记
+        first_line = code_content.split('\n')[0].strip()
+        if first_line in ['DELETED', 'DELETE', 'REMOVE', 'REMOVED']:
+            return True
+            
+        # 检查第一行是否包含删除原因注释
+        if re.search(r'//\s*此文件.*删除', first_line, re.IGNORECASE):
+            return True
+            
+        # 检查第一行是否包含删除原因注释 (Markdown 风格)
+        if re.search(r'#\s*此文件.*删除', first_line, re.IGNORECASE):
+            return True
+            
+        return False
 
     def _is_code_block_start(self, line: str) -> bool:
         """判断是否为代码块开始标记"""
@@ -176,8 +200,8 @@ class ResponseParser:
         for file_path, lang, code_content in matches:
             clean_file_path = self._clean_file_path(file_path.strip())
             if clean_file_path and self._is_valid_file_path(clean_file_path):
-                # 检查是否为删除标记
-                if lang == 'deleted' or '// 此文件已被删除' in code_content:
+                # 检查是否为删除标记 (使用新的严格判断逻辑)
+                if self._is_delete_marker(lang, code_content):
                     files.append((clean_file_path, 'deleted', 'DELETED'))
                 else:
                     cleaned_code = self._clean_code_content(code_content)

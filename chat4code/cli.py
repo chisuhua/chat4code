@@ -10,7 +10,7 @@ from .session import SessionManager
 def main():
     """主函数 - 命令行接口"""
     parser = argparse.ArgumentParser(
-        description="chat4code - 让代码与AI对话更简单",
+        description="chat4code - 讠让代码与AI对话更简单",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
@@ -44,6 +44,9 @@ def main():
     
     # 任务提示参数
     parser.add_argument('--task-prompt', action='store_true', help='在导出文件中包含任务提示')
+    
+    # 自定义任务内容参数
+    parser.add_argument('--task-content', help='为任务提供具体要求内容（如add_feature）')
     
     # 配置相关参数
     parser.add_argument('--config-init', action='store_true', help='初始化配置文件')
@@ -123,30 +126,33 @@ def main():
             "   python -m chat4code export ./my_project project.md --task analyze  # 任务提示显示在屏幕",
             "   python -m chat4code export ./my_project project.md --task analyze --task-prompt  # 任务提示包含在文件中",
             " ",
-            "5. 配置管理: ",
+            "5. 自定义任务内容: ",
+            "   python -m chat4code export ./my_project project.md --task add_feature --task-content \"添加用户登录功能\"",
+            " ",
+            "6. 配置管理: ",
             "   python -m chat4code --config-init  # 初始化配置文件",
             "   python -m chat4code --config-show   # 显示当前配置",
             " ",
-            "6. 交互模式: ",
+            "7. 交互模式: ",
             "   python -m chat4code --interactive   # 启动交互式模式",
             " ",
-            "7. 验证AI响应格式: ",
+            "8. 验证AI响应格式: ",
             "   python -m chat4code validate response.md",
             "   python -m chat4code validate response.md --verbose",
             " ",
-            "8. 查看可用任务模板: ",
+            "9. 查看可用任务模板: ",
             "   python -m chat4code --list-tasks",
             " ",
-            "9. 查看任务特定格式要求: ",
-            "   python -m chat4code --task-format analyze",
+            "10. 查看任务特定格式要求: ",
+            "    python -m chat4code --task-format analyze",
             " ",
-            "10. 会话管理: ",
+            "11. 会话管理: ",
             "    python -m chat4code session start my_session",
             "    python -m chat4code session log --task \"分析代码\" --desc \"分析项目结构\" my_session",
             "    python -m chat4code session history my_session",
             "    python -m chat4code session list",
             " ",
-            "11. 调试解析: ",
+            "12. 调试解析: ",
             "    python -m chat4code debug-parse response.md",
             " ",
             "支持的文件类型: ",
@@ -299,7 +305,8 @@ def main():
             helper.export_to_markdown(
                 src_dirs, output_file, extensions, args.task,
                 args.incremental, args.since_time,
-                args.task_prompt  # 使用 --task-prompt 参数
+                args.task_prompt,  # 使用 --task-prompt 参数
+                args.task_content  # 使用 --task-content 参数
             )
         except Exception as e:
             print(f"❌ 导出失败: {e}")
@@ -384,7 +391,7 @@ def _show_interactive_help():
     """显示交互式模式帮助"""
     help_text = """
 可用命令:
-  export [目录1] [目录2] ... [文件] [--task 任务] [--incremental] [--task-prompt]  导出项目代码
+  export [目录1] [目录2] ... [文件] [--task 任务] [--task-content 内容] [--incremental] [--task-prompt]  导出项目代码
   apply [文件] [目录] [--show-diff] [--no-backup]                     应用AI响应
   validate [文件]                                                      验证响应格式
   session start|log|history|list [参数]                               会话管理
@@ -402,6 +409,7 @@ def _interactive_export(helper, args):
     src_dirs = []
     output_file = None
     task = None
+    task_content = None
     incremental = False
     include_task_prompt = False  # 默认不包含任务提示在文件中
     
@@ -410,6 +418,9 @@ def _interactive_export(helper, args):
     while i < len(args):
         if args[i] == '--task' and i + 1 < len(args):
             task = args[i + 1]
+            i += 2
+        elif args[i] == '--task-content' and i + 1 < len(args):
+            task_content = args[i + 1]
             i += 2
         elif args[i] == '--incremental':
             incremental = True
@@ -471,6 +482,10 @@ def _interactive_export(helper, args):
             except:
                 print("无效选择，跳过任务指定")
     
+    # 如果是 add_feature 任务且没有指定具体内容，询问用户输入
+    if task == "add_feature" and not task_content:
+        task_content = input("请输入具体功能需求: ").strip()
+    
     # 询问是否在导出文件中包含任务提示
     if task and output_file:
         include_prompt = input("是否在导出文件中包含任务提示? (Y/n): ").strip().lower()
@@ -481,7 +496,8 @@ def _interactive_export(helper, args):
         result_file = helper.export_to_markdown(
             src_dirs, output_file, task=task, 
             incremental=incremental, 
-            include_task_prompt=include_task_prompt
+            include_task_prompt=include_task_prompt,
+            custom_task_content=task_content
         )
         print("✅ 导出完成! ")
         print(f"   导出文件: {result_file}")
