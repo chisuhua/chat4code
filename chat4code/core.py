@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 chat4code 核心模块
 """
@@ -111,6 +112,48 @@ class CodeProjectAIHelper:
             
         return matched_dirs
 
+    def _generate_file_tree(self, exported_files: List[str]) -> List[str]:
+        """
+        根据导出的文件列表生成目录结构的 Markdown 列表。
+        """
+        if not exported_files:
+            return []
+
+        tree_lines = ["# 项目文件组织结构", "", "*此目录结构列出了本次导出包含的所有文件*", ""]
+
+        # 对文件路径进行排序以确保一致的输出
+        sorted_files = sorted(exported_files)
+        
+        # 用于跟踪上一个处理的路径，以优化缩进计算
+        previous_parts = []
+        
+        for file_path in sorted_files:
+            # 将路径拆分为组件
+            parts = file_path.replace('\\', '/').split('/') # 统一使用 '/' 作为分隔符
+            current_path = ""
+            
+            # 遍历路径的每个部分
+            for i, part in enumerate(parts):
+                current_path = '/'.join(parts[:i+1]) # 构建当前路径
+                is_last_part = (i == len(parts) - 1) # 检查是否是最后一个部分（文件名）
+                
+                # 计算当前部分的缩进
+                indent = "  " * i
+                
+                # 构造列表项
+                list_item = f"{indent}* {part}" if not is_last_part else f"{indent}* `{part}`"
+                
+                # 检查该项是否已经添加过（避免重复的目录项）
+                # 我们只在它是文件（最后一部分）或者是一个新目录时添加
+                if is_last_part or current_path not in ['/'.join(previous_parts[:j+1]) for j in range(i+1)]:
+                    tree_lines.append(list_item)
+            
+            # 更新 previous_parts 为当前路径的组件
+            previous_parts = parts
+            
+        tree_lines.append("") # 在末尾添加一个空行
+        return tree_lines
+
     def export_to_markdown(self, src_dirs: List[str] = None, output_file: str = None, 
                           extensions: tuple = None, task: str = None,
                           incremental: bool = False, since_time: str = None,
@@ -208,6 +251,10 @@ class CodeProjectAIHelper:
                 print(task_info['prompt'])
                 print("==================\n")
         
+        # --- 新增功能：收集导出的文件路径 ---
+        exported_file_paths = []
+        # --- 新增功能结束 ---
+
         # 遍历所有匹配的目录
         file_count = 0
         for src_dir in matched_src_dirs:
@@ -226,6 +273,10 @@ class CodeProjectAIHelper:
                             if rel_path not in changed_files:
                                 continue
                         
+                        # --- 新增功能：记录导出的文件路径 ---
+                        exported_file_paths.append(rel_path)
+                        # --- 新增功能结束 ---
+
                         # 添加文件标题
                         markdown_lines.append(f"## {rel_path}")
                         markdown_lines.append(" ")
@@ -255,6 +306,24 @@ class CodeProjectAIHelper:
             markdown_lines.append(f"请检查目录路径和文件扩展名: {', '.join(extensions)}")
             markdown_lines.append(" ")
         
+        # --- 新增功能：生成并插入文件目录 ---
+        # 在任务提示之后（如果有的话）和文件内容之前插入目录
+        # 查找插入点：在最后一个 "---" 分隔线之后插入
+        insert_index = 0
+        for i in range(len(markdown_lines) - 1, -1, -1):
+            if markdown_lines[i].strip() == "---":
+                insert_index = i + 1
+                break
+        
+        # 生成目录树内容
+        file_tree_lines = self._generate_file_tree(exported_file_paths)
+        
+        # 在指定位置插入目录树
+        # 从后向前插入，避免索引偏移问题
+        for i in range(len(file_tree_lines) - 1, -1, -1):
+            markdown_lines.insert(insert_index, file_tree_lines[i])
+        # --- 新增功能结束 ---
+
         markdown_content = "\n".join(markdown_lines)
         
         # 如果指定了输出文件，则保存；否则打印到控制台
