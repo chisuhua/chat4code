@@ -62,7 +62,7 @@ class TaskManager:
                 # 处理模板
                 self.templates = raw_prompts.get('templates', {})
                 self.prompts = self._process_templates(raw_prompts)
-                
+                 
             except Exception as e:
                 raise Exception(f"加载提示词文件失败: {e}")
         else:
@@ -109,7 +109,7 @@ class TaskManager:
                         params[key.strip()] = value.strip()
             else:
                 template_name = template_ref
-                params = {}
+                params = {} 
             
             # 查找模板
             if template_name in self.templates:
@@ -167,10 +167,10 @@ class TaskManager:
         lines = [
             f"=== {task_info['name']} 任务提示 ===",
             "",
-            "任务描述:",
+            "任务描述: ",
             f"  {task_info['description']}",
             "",
-            "AI提示:",
+            "AI提示: ",
             f"  {task_info['prompt']}",
             ""
         ]
@@ -217,28 +217,30 @@ class TaskManager:
                 # 处理模板
                 self.templates = raw_prompts.get('templates', {})
                 self.prompts = self._process_templates(raw_prompts)
-                
+                 
             except Exception as e:
                 print(f"❌ 重新加载提示词文件失败: {e}")
 
     def customize_task_prompt(self, task_key: str, project_type: str, custom_content: str) -> Optional[str]:
         """
         根据用户输入的具体内容定制任务提示
-        专门为 add_feature 任务设计，将 '[请在此处描述具体功能需求]' 替换为 custom_content
+        专门为 add_feature 和 explain 任务设计，将 '[请在此处描述具体功能]' 替换为 custom_content
         
         Args:
-            task_key: 任务键名 (如 'add_feature')
+            task_key: 任务键名 (如 'add_feature', 'explain')
             project_type: 项目类型 (如 'generic', 'python')
             custom_content: 用户提供的具体任务内容
             
         Returns:
             定制后的提示字符串，如果任务不存在则返回 None
         """
+        # --- 修正点 1: 使用正确的占位符 '[请在此处描述具体功能]' ---
+        PLACEHOLDER = '[请在此处描述具体功能]'
         task_info = self.get_task_info(task_key, project_type)
         if not task_info:
             return None
             
         original_prompt = task_info.get('prompt', '')
         # 替换占位符
-        customized_prompt = original_prompt.replace('[请在此处描述具体功能需求]', custom_content)
+        customized_prompt = original_prompt.replace(PLACEHOLDER, custom_content)
         return customized_prompt

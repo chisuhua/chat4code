@@ -46,14 +46,10 @@ def main():
     parser.add_argument('--show-diff', action='store_true', help='显示应用前后的差异')
 
     # 任务提示参数
-    # --- 修改点 2: 更改 --task-prompt 的默认行为 ---
-    # 将其默认设置为 store_true，但逻辑上我们稍作调整。
-    # 实际上，我们让核心逻辑处理默认包含 add_feature 提示词。
-    # 这里我们保留参数，但 cli 的处理逻辑会根据任务类型和内容决定是否包含。
-    parser.add_argument('--task-prompt', action='store_true', help='在导出文件中包含任务提示 (默认对 add_feature 任务开启)')
+    parser.add_argument('--task-prompt', action='store_true', help='在导出文件中包含任务提示 (默认对 add_feature 和 explain 任务且提供 --task-content 时开启)')
 
     # 自定义任务内容参数
-    parser.add_argument('--task-content', help='为任务提供具体要求内容（如add_feature）')
+    parser.add_argument('--task-content', help='为任务提供具体要求内容（如add_feature, explain）')
 
     # 配置相关参数
     parser.add_argument('--config-init', action='store_true', help='初始化配置文件')
@@ -131,13 +127,15 @@ def main():
             " ",
             "4. 任务提示处理: ",
             "   python -m chat4code export ./my_project project.md --task analyze  # 任务提示显示在屏幕",
-            # --- 修改点 3: 更新 help 信息 ---
-            "   python -m chat4code export ./my_project project.md --task add_feature  # add_feature任务提示默认包含在文件中",
+            "   python -m chat4code export ./my_project project.md --task add_feature  # add_feature任务提示默认包含在文件中 (如果提供 --task-content)",
+            "   python -m chat4code export ./my_project project.md --task explain  # explain任务提示默认包含在文件中 (如果提供 --task-content)",
             "   python -m chat4code export ./my_project project.md --task add_feature --task-content \"添加用户登录功能\" # 指定具体功能",
+            "   python -m chat4code export ./my_project project.md --task explain --task-content \"解释用户认证模块的工作原理\" # 指定解释内容",
             "   python -m chat4code export ./my_project project.md --task analyze --task-prompt  # 其他任务强制包含提示词在文件中",
             " ",
             "5. 自定义任务内容: ",
             "   python -m chat4code export ./my_project project.md --task add_feature --task-content \"添加用户登录功能\" ",
+            "   python -m chat4code export ./my_project project.md --task explain --task-content \"解释用户认证模块的工作原理\" ",
             " ",
             "6. 配置管理: ",
             "   python -m chat4code --config-init  # 初始化配置文件",
@@ -166,7 +164,7 @@ def main():
             "    python -m chat4code debug-parse response.md",
             " ",
             "支持的文件类型: ",
-            ",   ".join(helper.list_supported_extensions()),
+            ",    ".join(helper.list_supported_extensions()),
             " "
         ]
         print("\n".join(instructions))
@@ -312,19 +310,21 @@ def main():
 
         extensions = tuple(args.ext) if args.ext else helper.default_extensions
 
-        # --- 修改点 4: 处理 add_feature 任务的用户输入 ---
+        # --- 修正点 4: 处理 add_feature 和 explain 任务的用户输入 ---
         task_content = args.task_content
-        if args.task == "add_feature" and not task_content:
-            # 如果是 add_feature 任务且未提供 --task-content，则提示用户输入
-            task_content = input("请输入具体功能需求: ").strip()
+        if args.task in ["add_feature", "explain"] and not task_content:
+            # 如果是 add_feature 或 explain 任务且未提供 --task-content，则提示用户输入
+            prompt_msg = "请输入具体功能需求: " if args.task == "add_feature" else "请输入需要解释的内容: "
+            task_content = input(prompt_msg).strip()
             if not task_content:
-                print("⚠️ 未提供具体功能需求，将使用默认提示词。")
+                print("⚠️ 未提供具体内容，将使用默认提示词。")
 
-        # --- 修改点 5: 设置 add_feature 任务的默认包含提示词行为 ---
+        # --- 修正点 5: 设置 add_feature 和 explain 任务的默认包含提示词行为 ---
         include_task_prompt = args.task_prompt
-        # 如果是 add_feature 任务，并且用户提供了内容或显式要求包含提示词，则在文件中包含提示词
-        # 核心逻辑会处理 custom_task_content 存在时的包含行为，这里主要是处理用户显式开关
-        if args.task == "add_feature" and (task_content or include_task_prompt):
+        # 如果是 add_feature 或 explain 任务，并且用户提供了内容或显式要求包含提示词，则在文件中包含提示词
+        # 核心逻辑 (`core.py`) 会处理 custom_task_content 存在时的包含行为，
+        # 但如果用户显式使用了 --task-prompt，我们也应尊重。
+        if args.task in ["add_feature", "explain"] and (task_content or include_task_prompt):
             include_task_prompt = True # 确保包含
 
         try:
@@ -360,7 +360,9 @@ def main():
             print(f"❌ 应用失败: {e}")
             return
 
+    # ... [其余代码保持不变，因为交互模式的逻辑在 core.py 中已修正，CLI 的交互部分不需要大改] ...
 
+# 为了保持代码完整性，这里包含其余未修改的函数
 def interactive_mode():
     """交互式模式"""
     print("=== chat4code 交互式模式 ===")
@@ -379,7 +381,7 @@ def interactive_mode():
                 continue
 
             if command.lower() in ['quit', 'exit']:
-                print("👋 再见！")
+                print("\n👋 再见！")
                 break
 
             if command.lower() == 'help':
@@ -420,15 +422,15 @@ def _show_interactive_help():
     help_text = """
 可用命令:
   export [目录1] [目录2] ... [文件] [--task 任务] [--task-content 内容] [--incremental] [--task-prompt]  导出项目代码
-  apply [文件] [目录] [--show-diff] [--no-backup]                     应用AI 响应
+  apply [文件] [目录] [--show-diff] [--no-backup]                     应用AI  响应
   validate [文件]                                                      验证响应格式
   session start|log|history|list [参数]                               会话管理
-  config init|show                                                      配置管理
+  config init|show                                                       配置管理
   tasks                                                               显示可用任务
-  extensions                                                           显示支持的扩展名
+  extensions                                                            显示支持的扩展名
   help                                                                 显示此帮助
   quit/exit                                                           退出程序
-    """
+"""
     print(help_text)
 
 
@@ -483,7 +485,7 @@ def _interactive_export(helper, args):
         output_file = src_dirs.pop()
 
     # 如果没有指定任务，直接进入任务选择流程，不再询问 y/N
-    # 修改点：移除了 "use_task = input("是否指定任务? (y/N): ").strip().lower()" 这一步
+    # 修改点：移除了 "use_task = input( "是否指定任务? (y/N):  ").strip().lower() " 这一步
     if not task:
         # 直接显示可用任务并让用户选择
         tasks = list(helper.task_manager.list_tasks().keys())
@@ -504,13 +506,14 @@ def _interactive_export(helper, args):
         else:
             print("当前没有可用的任务模板。")
 
-    # --- 修改点 6: 在交互模式中也处理 add_feature 的用户输入 ---
-    # 如果是 add_feature 任务且没有指定具体内容，询问用户输入
-    if task == "add_feature" and not task_content:
-        task_content = input("请输入具体功能需求: ").strip()
+    # --- 修正点 6: 在交互模式中也处理 add_feature 和 explain 的用户输入 ---
+    # 如果是 add_feature 或 explain 任务且没有指定具体内容，询问用户输入
+    if task in ["add_feature", "explain"] and not task_content:
+        prompt_msg = "请输入具体功能需求: " if task == "add_feature" else "请输入需要解释的内容: "
+        task_content = input(prompt_msg).strip()
         # 在交互模式中，用户输入了内容后，也应默认包含提示词
         if task_content:
-             include_task_prompt = True # 确保包含
+            include_task_prompt = True  # 确保包含
 
     # 询问是否在导出文件中包含任务提示 (这部分保持不变，因为它是在已选择任务后才询问)
     # 如果没有指定输出文件，根据任务自动生成文件名
@@ -532,13 +535,13 @@ def _interactive_export(helper, args):
             output_file = "export_output.md"
 
     # 询问是否在导出文件中包含任务提示 (仅当有任务且有输出文件时)
-    # --- 修改点 7: 调整交互模式中的提示逻辑 ---
-    # 对于 add_feature 任务，如果用户已经输入了内容，则默认包含提示词，不再询问。
+    # --- 修正点 7: 调整交互模式中的提示逻辑 ---
+    # 对于 add_feature 和 explain 任务，如果用户已经输入了内容，则默认包含提示词，不再询问。
     # 对于其他任务，或者用户未输入内容的情况，保留原有询问逻辑。
     if task and output_file:
-        # 如果是 add_feature 且有内容，跳过询问
-        if task == "add_feature" and task_content:
-             pass # 已在上面设置 include_task_prompt = True
+        # 如果是 add_feature 或 explain 且有内容，跳过询问
+        if task in ["add_feature", "explain"] and task_content:
+            pass  # 已在上面设置 include_task_prompt = True
         else:
             # 对于其他情况，询问用户
             include_prompt = input("是否在导出文件中包含任务提示? (Y/n): ").strip().lower()
@@ -550,7 +553,7 @@ def _interactive_export(helper, args):
             src_dirs, output_file, task=task,
             incremental=incremental,
             include_task_prompt=include_task_prompt,
-            custom_task_content=task_content # 注意：交互模式中传递的是 task_content
+            custom_task_content=task_content  # 注意：交互模式中传递的是 task_content
         )
         print("✅ 导出完成! ")
         print(f"   导出文件: {result_file}")

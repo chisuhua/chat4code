@@ -138,10 +138,10 @@ class CodeProjectAIHelper:
                 is_last_part = (i == len(parts) - 1)  # 检查是否是最后一个部分（文件名）
 
                 # 计算当前部分的缩进
-                indent = "   " * i
+                indent = "    " * i
 
                 # 构造列表项
-                list_item = f"{indent}- {part}  " if not is_last_part else f"{indent}- `{part}`  "
+                list_item = f"{indent}- {part}   " if not is_last_part else f"{indent}- `{part}`   "
 
                 # 检查该项是否已经添加过（避免重复的目录项）
                 # 我们只在它是文件（最后一部分）或者是一个新目录时添加
@@ -151,7 +151,7 @@ class CodeProjectAIHelper:
             # 更新 previous_parts 为当前路径的组件
             previous_parts = parts
 
-        tree_lines.append(" ")  # 在末尾添加一个空行
+        tree_lines.append("  ")  # 在末尾添加一个空行
         return tree_lines
 
     def export_to_markdown(self, src_dirs: List[str] = None, output_file: str = None,
@@ -218,53 +218,48 @@ class CodeProjectAIHelper:
                 markdown_lines.append(f"自时间: {since_time}")
             else:
                 markdown_lines.append("自上次导出以来的变更")
-        markdown_lines.append("  ")
+        markdown_lines.append("   ")
         markdown_lines.append("---")
-        markdown_lines.append("  ")
+        markdown_lines.append("   ")
 
         # 如果有任务，处理任务提示
         task_info = None
         if task and self.task_manager.has_task(task):
             task_info = self.task_manager.get_task_info(task, project_type)
 
-            # --- 修改点 1: 对于 add_feature 任务，默认在导出文件中包含提示词 ---
-            # 如果是 add_feature 任务且 include_task_prompt 未被显式设置（默认 False），
-            # 则默认将其设置为 True，以便将提示词包含在导出文件中。
-            # 注意：如果用户通过命令行显式设置了 --task-prompt False，则此逻辑不会覆盖。
-            # 但 cli.py 中的逻辑会优先处理用户输入，所以这里的默认行为是安全的。
-            if task == "add_feature" and not include_task_prompt:
-                 # 检查 include_task_prompt 是否是默认值 (False)，如果是，则设置为 True
-                 # 但因为 cli 已经处理了用户输入，这里的 include_task_prompt 实际上是传入的值。
-                 # 更稳妥的做法是在 cli 中直接控制默认行为。此处保留逻辑以备不时之需。
-                 # 不过，为了确保 add_feature 的提示词总是在文件中，可以强制设置。
-                 # 但更好的方式是让 cli 控制。这里我们假设 cli 已经处理了。
-                 # 为保险起见，我们再次检查：如果任务是 add_feature 且 custom_task_content 有值，
-                 # 则确保 include_task_prompt 为 True。
-                 if custom_task_content:
-                     include_task_prompt = True # 确保包含提示词
+            # --- 修正点 2: 对于 add_feature 和 explain 任务，统一处理自定义内容和提示词包含逻辑 ---
+            # 如果是 add_feature 或 explain 任务，并且提供了自定义内容，
+            # 则默认在导出文件中包含定制后的提示词。
+            if task in ["add_feature", "explain"] and custom_task_content:
+                 # 调用任务管理器的定制函数
+                 customized_prompt = self.task_manager.customize_task_prompt(task, project_type, custom_task_content)
+                 if customized_prompt:
+                     # 创建 task_info 副本并更新 prompt
+                     task_info = task_info.copy()
+                     task_info['prompt'] = customized_prompt
+                     # 确保提示词被包含在导出文件中
+                     include_task_prompt = True
 
-            # 如果提供了自定义任务内容，定制提示词
-            if custom_task_content and task == "add_feature":
-                customized_prompt = self.task_manager.customize_task_prompt(task, project_type, custom_task_content)
-                if customized_prompt:
-                    task_info = task_info.copy()  # 复制以避免修改原始任务信息
-                    task_info['prompt'] = customized_prompt
+            # --- 修正点 3: 移除了之前错误的、基于 include_task_prompt 默认值的判断逻辑 ---
+            # 原有的 if task == "add_feature" and not include_task_prompt: ... 逻辑已删除
+            # 因为正确的逻辑是：如果提供了 custom_task_content 且任务是 add_feature/explain，则包含提示词。
+            # 否则，行为由 include_task_prompt 参数（来自 CLI）决定。
 
-            if include_task_prompt:
+            if include_task_prompt and task_info: # 确保 task_info 存在
                 # 在导出文件中包含任务提示
                 markdown_lines.append("## AI任务提示")
-                markdown_lines.append("  ")
-                markdown_lines.append("**请按照以下要求执行任务**:  ")
-                markdown_lines.append("  ")
-                markdown_lines.append(task_info['prompt'])
-                markdown_lines.append("  ")
+                markdown_lines.append("   ")
+                markdown_lines.append("**请按照以下要求执行任务**:   ")
+                markdown_lines.append("   ")
+                markdown_lines.append(task_info['prompt']) # 使用可能被定制过的 prompt
+                markdown_lines.append("   ")
                 markdown_lines.append("---")
-                markdown_lines.append("  ")
-            else:
+                markdown_lines.append("   ")
+            elif task_info: # 确保 task_info 存在
                 # 只在屏幕上显示任务提示，不在导出文件中包含
                 print("\n=== AI任务提示 ===")
                 print("请按照以下要求执行任务: ")
-                print(task_info['prompt'])
+                print(task_info['prompt']) # 使用可能被定制过的 prompt
                 print("==================\n")
 
         # --- 新增功能：收集导出的文件路径 ---
@@ -295,7 +290,7 @@ class CodeProjectAIHelper:
 
                         # 添加文件标题
                         markdown_lines.append(f"## {rel_path}")
-                        markdown_lines.append("  ")
+                        markdown_lines.append("   ")
 
                         # 确定代码语言
                         lang = self._get_language_by_extension(file)
@@ -312,7 +307,7 @@ class CodeProjectAIHelper:
                             markdown_lines.append(f"[读取文件时发生错误: {str(e)}]")
 
                         markdown_lines.append("```")
-                        markdown_lines.append("  ")
+                        markdown_lines.append("   ")
                         file_count += 1
 
         if file_count == 0:
@@ -320,11 +315,11 @@ class CodeProjectAIHelper:
             if incremental:
                 markdown_lines.append("自上次导出以来没有文件变更")
             markdown_lines.append(f"请检查目录路径和文件扩展名: {', '.join(extensions)}")
-            markdown_lines.append("  ")
+            markdown_lines.append("   ")
 
         # --- 新增功能：生成并插入文件目录 ---
         # 在任务提示之后（如果有的话）和文件内容之前插入目录
-        # 查找插入点：在最后一个  "---" 分隔线之后插入
+        # 查找插入点：在最后一个 "---" 分隔线之后插入
         insert_index = 0
         for i in range(len(markdown_lines) - 1, -1, -1):
             if markdown_lines[i].strip() == "---":
@@ -358,6 +353,9 @@ class CodeProjectAIHelper:
 
         return output_file
 
+    # ... [其余代码保持不变] ...
+
+    # 为了保持代码完整性，这里包含其余未修改的方法
     def apply_markdown_response(self, markdown_file: str = None, dst_dir: str = None,
                                 create_backup: bool = None,
                                 flexible_parsing: bool = True,
@@ -515,7 +513,7 @@ class CodeProjectAIHelper:
                 for deleted_info in result['deleted']:
                     print(f"   - {deleted_info['file']}")
                     if deleted_info['backup']:
-                        print(f"     (已备份: {deleted_info['backup']})")
+                        print(f"     (已备份: {deleted_info['backup']}) ")
 
         return result
 
@@ -855,7 +853,7 @@ class CodeProjectAIHelper:
             lines = content.split('\n')
             for i, line in enumerate(lines):
                 if line.strip().startswith('##'):
-                    print(f"  行 {i + 1}: {line.strip()}")
+                    print(f"  行 {i + 1}: {line.strip()} ")
 
         except Exception as e:
             print(f"调试解析失败: {e}")
