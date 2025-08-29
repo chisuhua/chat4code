@@ -1,5 +1,5 @@
 {
-  "default_extensions": [".cpp", ".h", ".cc", ".hh", ".py", ".js", ".ts", ".yaml"],
+  "default_extensions": [".cpp", ".h", ".cc", ".hh", ".py", ".js", ".ts"],
   "language_map": {
     ".cpp": "cpp",
     ".cc": "cpp",
@@ -30,12 +30,14 @@
     "*.tmp",
     "node_modules/",
     "*.backup*",
+    "*.bakup*",
     "*.git/",
     "__pycache__/",
     "aitalk/",
     "tmp*/",
     "docs/",
     "example*/",
+    "updated_project/",
     "imports/",
     "exports/",
     "setup.py",
