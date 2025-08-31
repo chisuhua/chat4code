@@ -13,6 +13,9 @@ from .tasks import TaskManager
 from .parser import ResponseParser
 from .validator import ResponseValidator
 from .config import ConfigManager
+# --- 新增导入 ---
+from .features import FeatureManager
+# --- 新增导入结束 ---
 import fnmatch
 
 class CodeProjectAIHelper:
@@ -43,6 +46,9 @@ class CodeProjectAIHelper:
 
         self.response_parser = ResponseParser()
         self.response_validator = ResponseValidator()
+        # --- 新增初始化 ---
+        self.feature_manager = FeatureManager() # 初始化特性管理器
+        # --- 新增初始化结束 ---
 
     def get_next_sequential_filename(self, pattern: str, output_dir: str) -> str:
         """
@@ -141,7 +147,7 @@ class CodeProjectAIHelper:
                 indent = "    " * i
 
                 # 构造列表项
-                list_item = f"{indent}- {part}   " if not is_last_part else f"{indent}- `{part}`   "
+                list_item = f"{indent}- {part}    " if not is_last_part else f"{indent}- `{part}`    "
 
                 # 检查该项是否已经添加过（避免重复的目录项）
                 # 我们只在它是文件（最后一部分）或者是一个新目录时添加
@@ -151,7 +157,7 @@ class CodeProjectAIHelper:
             # 更新 previous_parts 为当前路径的组件
             previous_parts = parts
 
-        tree_lines.append("  ")  # 在末尾添加一个空行
+        tree_lines.append("   ")  # 在末尾添加一个空行
         return tree_lines
 
     def export_to_markdown(self, src_dirs: List[str] = None, output_file: str = None,
@@ -218,9 +224,17 @@ class CodeProjectAIHelper:
                 markdown_lines.append(f"自时间: {since_time}")
             else:
                 markdown_lines.append("自上次导出以来的变更")
-        markdown_lines.append("   ")
+        # --- 新增功能：添加特性ID信息 ---
+        feature_id = None
+        if task == "add_feature" and custom_task_content:
+            # 添加特性并获取ID
+            feature_id = self.feature_manager.add_feature(custom_task_content, os.path.basename(output_file))
+            self.feature_manager.update_feature_status(feature_id, "exported") # 导出时更新状态
+            markdown_lines.append(f"关联特性ID: {feature_id}")
+        # --- 新增功能结束 ---
+        markdown_lines.append("    ")
         markdown_lines.append("---")
-        markdown_lines.append("   ")
+        markdown_lines.append("    ")
 
         # 如果有任务，处理任务提示
         task_info = None
@@ -231,14 +245,14 @@ class CodeProjectAIHelper:
             # 如果是 add_feature 或 explain 任务，并且提供了自定义内容，
             # 则默认在导出文件中包含定制后的提示词。
             if task in ["add_feature", "explain"] and custom_task_content:
-                 # 调用任务管理器的定制函数
-                 customized_prompt = self.task_manager.customize_task_prompt(task, project_type, custom_task_content)
-                 if customized_prompt:
-                     # 创建 task_info 副本并更新 prompt
-                     task_info = task_info.copy()
-                     task_info['prompt'] = customized_prompt
-                     # 确保提示词被包含在导出文件中
-                     include_task_prompt = True
+                # 调用任务管理器的定制函数
+                customized_prompt = self.task_manager.customize_task_prompt(task, project_type, custom_task_content)
+                if customized_prompt:
+                    # 创建 task_info 副本并更新 prompt
+                    task_info = task_info.copy()
+                    task_info['prompt'] = customized_prompt
+                    # 确保提示词被包含在导出文件中
+                    include_task_prompt = True
 
             # --- 修正点 3: 移除了之前错误的、基于 include_task_prompt 默认值的判断逻辑 ---
             # 原有的 if task == "add_feature" and not include_task_prompt: ... 逻辑已删除
@@ -248,13 +262,13 @@ class CodeProjectAIHelper:
             if include_task_prompt and task_info: # 确保 task_info 存在
                 # 在导出文件中包含任务提示
                 markdown_lines.append("## AI任务提示")
-                markdown_lines.append("   ")
-                markdown_lines.append("**请按照以下要求执行任务**:   ")
-                markdown_lines.append("   ")
+                markdown_lines.append("    ")
+                markdown_lines.append("**请按照以下要求执行任务**:    ")
+                markdown_lines.append("    ")
                 markdown_lines.append(task_info['prompt']) # 使用可能被定制过的 prompt
-                markdown_lines.append("   ")
+                markdown_lines.append("    ")
                 markdown_lines.append("---")
-                markdown_lines.append("   ")
+                markdown_lines.append("    ")
             elif task_info: # 确保 task_info 存在
                 # 只在屏幕上显示任务提示，不在导出文件中包含
                 print("\n=== AI任务提示 ===")
@@ -290,7 +304,7 @@ class CodeProjectAIHelper:
 
                         # 添加文件标题
                         markdown_lines.append(f"## {rel_path}")
-                        markdown_lines.append("   ")
+                        markdown_lines.append("    ")
 
                         # 确定代码语言
                         lang = self._get_language_by_extension(file)
@@ -307,7 +321,7 @@ class CodeProjectAIHelper:
                             markdown_lines.append(f"[读取文件时发生错误: {str(e)}]")
 
                         markdown_lines.append("```")
-                        markdown_lines.append("   ")
+                        markdown_lines.append("    ")
                         file_count += 1
 
         if file_count == 0:
@@ -315,11 +329,11 @@ class CodeProjectAIHelper:
             if incremental:
                 markdown_lines.append("自上次导出以来没有文件变更")
             markdown_lines.append(f"请检查目录路径和文件扩展名: {', '.join(extensions)}")
-            markdown_lines.append("   ")
+            markdown_lines.append("    ")
 
         # --- 新增功能：生成并插入文件目录 ---
         # 在任务提示之后（如果有的话）和文件内容之前插入目录
-        # 查找插入点：在最后一个 "---" 分隔线之后插入
+        # 查找插入点：在最后一个  "---" 分隔线之后插入
         insert_index = 0
         for i in range(len(markdown_lines) - 1, -1, -1):
             if markdown_lines[i].strip() == "---":
@@ -351,11 +365,10 @@ class CodeProjectAIHelper:
             # 输出到控制台
             print(markdown_content)
 
-        return output_file
+        return output_file # 返回实际使用的输出文件名
 
-    # ... [其余代码保持不变] ...
+    # ... [其余代码保持不变，但需要修改 apply_markdown_response] ...
 
-    # 为了保持代码完整性，这里包含其余未修改的方法
     def apply_markdown_response(self, markdown_file: str = None, dst_dir: str = None,
                                 create_backup: bool = None,
                                 flexible_parsing: bool = True,
@@ -477,7 +490,7 @@ class CodeProjectAIHelper:
 
                 # 显示差异（如果需要）
                 if show_diff and diff_info:
-                    print(f"   差异信息: {diff_info['summary']}")
+                    print(f"   差异信息: {diff_info['summary']} ")
 
             except Exception as e:
                 result['failed'].append({
@@ -515,8 +528,31 @@ class CodeProjectAIHelper:
                     if deleted_info['backup']:
                         print(f"     (已备份: {deleted_info['backup']}) ")
 
+        # --- 新增功能：在应用成功后更新特性状态 ---
+        # 尝试从 Markdown 文件中提取关联的特性ID
+        # 这里采用一个简单的方法：查找第一行包含 "关联特性ID:" 的行
+        lines = markdown_content.splitlines()
+        associated_feature_id = None
+        for line in lines:
+            if line.startswith("关联特性ID:"):
+                associated_feature_id = line.split(":", 1)[1].strip()
+                break
+
+        if associated_feature_id:
+            feature = self.feature_manager.get_feature(associated_feature_id)
+            if feature:
+                # 更新特性状态为 applied，并关联响应文件
+                self.feature_manager.update_feature_status(associated_feature_id, "applied", os.path.basename(markdown_file))
+                print(f"✅ 关联特性 {associated_feature_id} 状态已更新为 'applied'，响应文件: {os.path.basename(markdown_file)}")
+            else:
+                print(f"⚠️  未找到关联的特性 {associated_feature_id}")
+        # --- 新增功能结束 ---
+
         return result
 
+    # ... [其余未修改的方法保持不变] ...
+
+    # 为了保持代码完整性，这里包含其余未修改的方法
     def _should_exclude_file(self, file_path: str, exclude_patterns: List[str]) -> bool:
         """检查文件是否应该被排除"""
         for pattern in exclude_patterns:

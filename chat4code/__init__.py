@@ -10,12 +10,17 @@ from .tasks import TaskManager
 from .parser import ResponseParser
 from .validator import ResponseValidator
 from .session import SessionManager
+# --- 新增导入 ---
+from .features import FeatureManager
+# --- 新增导入结束 ---
 
 __all__ = [
     'CodeProjectAIHelper',
-    'TaskManager', 
+    'TaskManager',
     'ResponseParser',
     'ResponseValidator',
-    'SessionManager'
+    'SessionManager',
+    # --- 新增导出 ---
+    'FeatureManager'
+    # --- 新增导出结束 ---
 ]
-

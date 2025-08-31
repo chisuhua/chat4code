@@ -8,6 +8,9 @@ import argparse
 import os
 from .core import CodeProjectAIHelper
 from .session import SessionManager
+# --- 新增导入 ---
+from .features import FeatureManager
+# --- 新增导入结束 ---
 
 
 def main():
@@ -24,8 +27,8 @@ def main():
         """
     )
 
-    parser.add_argument('action', nargs='?', choices=['export', 'apply', 'validate', 'session', 'debug-parse', 'config', 'help'],
-                        help='操作类型: export(导出代码), apply(应用响应), validate(验证格式), session(会话管理), debug-parse(调试解析), config(配置管理), help(帮助)')
+    parser.add_argument('action', nargs='?', choices=['export', 'apply', 'validate', 'session', 'debug-parse', 'config', 'help', 'feature'],
+                        help='操作类型: export(导出代码), apply(应用响应), validate(验证格式), session(会话管理), debug-parse(调试解析), config(配置管理), help(帮助), feature(特性管理)')
 
     parser.add_argument('paths', nargs='*', help='路径参数')
 
@@ -72,6 +75,9 @@ def main():
     # 初始化助手
     helper = CodeProjectAIHelper()
     session_manager = SessionManager()
+    # --- 新增初始化 ---
+    feature_manager = FeatureManager() # 初始化特性管理器用于 CLI 命令
+    # --- 新增初始化结束 ---
 
     # 处理配置相关命令
     if args.config_init:
@@ -104,6 +110,89 @@ def main():
     if args.task_format:
         print(helper.task_manager.show_task_format(args.task_format))
         return
+
+    # --- 新增功能：处理 feature 动作 ---
+    if args.action == 'feature':
+        if len(args.paths) < 1:
+            print("❌ 错误: feature 操作需要指定子命令")
+            print("用法: python -m chat4code feature list [--status <status>]")
+            print("     python -m chat4code feature show <ID>")
+            print("     python -m chat4code feature edit")
+            print("     python -m chat4code feature find <描述关键词>")
+            return
+
+        sub_action = args.paths[0]
+        if sub_action == 'list':
+            status_filter = None
+            # 简单解析 --status 参数
+            if '--status' in args.paths:
+                try:
+                    status_idx = args.paths.index('--status')
+                    status_filter = args.paths[status_idx + 1]
+                except (IndexError, ValueError):
+                    print("⚠️  --status 参数格式不正确")
+            features = feature_manager.list_features(status_filter)
+            if not features:
+                print(f"ℹ️  没有找到{'状态为 ' + status_filter + ' 的' if status_filter else ''}特性。")
+            else:
+                print(f"=== 特性列表 ({len(features)} 个){' - 状态: ' + status_filter if status_filter else ''} ===")
+                for feat in features:
+                   print(f"ID: {feat['id']}, 状态: {feat['status']}")
+                   print(f"  描述: {feat['description']}")
+                   print(f"  创建时间: {feat.get('created_at', 'N/A')}")
+                   if feat.get('exported_at'):
+                       print(f"  导出时间: {feat['exported_at']}")
+                   if feat.get('applied_at'):
+                       print(f"  应用时间: {feat['applied_at']}")
+                   if feat.get('export_file'):
+                       print(f"  导出文件: {feat['export_file']}")
+                   if feat.get('response_file'):
+                       print(f"  响应文件: {feat['response_file']}")
+                   print("-" * 20)
+
+        elif sub_action == 'show':
+            if len(args.paths) < 2:
+                print("❌ 错误: 需要指定特性ID")
+                return
+            feature_id = args.paths[1]
+            feature = feature_manager.get_feature(feature_id)
+            if not feature:
+                print(f"❌ 未找到特性: {feature_id}")
+                return
+            print(f"=== 特性详情: {feature_id} ===")
+            print(f"状态: {feature['status']}")
+            print(f"描述: {feature['description']}")
+            print(f"创建时间: {feature.get('created_at', 'N/A')}")
+            if feature.get('exported_at'):
+                print(f"导出时间: {feature['exported_at']}")
+            if feature.get('applied_at'):
+                print(f"应用时间: {feature['applied_at']}")
+            if feature.get('export_file'):
+                print(f"关联导出文件: {feature['export_file']}")
+            if feature.get('response_file'):
+                print(f"关联响应文件: {feature['response_file']}")
+
+        elif sub_action == 'edit':
+            feature_manager.edit_features_file()
+
+        elif sub_action == 'find':
+             if len(args.paths) < 2:
+                 print("❌ 错误: 需要指定描述关键词")
+                 return
+             keyword = args.paths[1]
+             features = feature_manager.find_feature_by_description(keyword)
+             if not features:
+                 print(f"ℹ️  未找到包含关键词 '{keyword}' 的特性。")
+             else:
+                 print(f"=== 匹配特性 (关键词: '{keyword}') ===")
+                 for feat in features:
+                    print(f"ID: {feat['id']}, 状态: {feat['status']}")
+                    print(f"  描述: {feat['description']}")
+                    print("-" * 20)
+        else:
+            print(f"❌ 未知的 feature 子命令: {sub_action}")
+        return
+    # --- 新增功能结束 ---
 
     # 处理 help 动作
     if args.action == 'help' or not args.action:
@@ -160,11 +249,19 @@ def main():
             "    python -m chat4code session history my_session",
             "    python -m chat4code session list",
             " ",
-            "12. 调试解析: ",
+            # --- 新增功能：添加特性管理说明 ---
+            "12. 特性管理: ",
+            "    python -m chat4code feature list [--status <pending|exported|applied>] # 列出特性",
+            "    python -m chat4code feature show <ID>                                  # 显示特性详情",
+            "    python -m chat4code feature edit                                      # 编辑特性数据库",
+            "    python -m chat4code feature find <关键词>                             # 根据描述查找特性",
+            " ",
+            # --- 新增功能结束 ---
+            "13. 调试解析: ",
             "    python -m chat4code debug-parse response.md",
             " ",
             "支持的文件类型: ",
-            ",    ".join(helper.list_supported_extensions()),
+            ", ".join(helper.list_supported_extensions()),
             " "
         ]
         print("\n".join(instructions))
@@ -321,13 +418,14 @@ def main():
 
         # --- 修正点 5: 设置 add_feature 和 explain 任务的默认包含提示词行为 ---
         include_task_prompt = args.task_prompt
-        # 如果是 add_feature 或 explain 任务，并且用户提供了内容或显式要求包含提示词，则在文件中包含提示词
+        # 如果是 add_feature 或 explain 任务，并且用户提供了内容或显式要求包含提示词，则在文件中包含 提示词
         # 核心逻辑 (`core.py`) 会处理 custom_task_content 存在时的包含行为，
         # 但如果用户显式使用了 --task-prompt，我们也应尊重。
         if args.task in ["add_feature", "explain"] and (task_content or include_task_prompt):
             include_task_prompt = True # 确保包含
 
         try:
+            # 传递 custom_task_content 参数
             helper.export_to_markdown(
                 src_dirs, output_file, extensions, args.task,
                 args.incremental, args.since_time,
@@ -350,12 +448,15 @@ def main():
 
         try:
             # 应用到本地，使用灵活解析模式
-            helper.apply_markdown_response(
+            result = helper.apply_markdown_response(
                 markdown_file, dst_dir,
                 not args.no_backup if args.no_backup else None,  # 如果指定了--no-backup则为False，否则使用配置默认值
                 not args.strict,  # 默认使用灵活解析
                 args.show_diff  # 显示差异
             )
+            # --- 新增功能：在 apply 成功后提示关联的特性 ---
+            # 这部分逻辑已在 core.py 的 apply_markdown_response 中处理
+            # --- 新增功能结束 ---
         except Exception as e:
             print(f"❌ 应用失败: {e}")
             return
@@ -406,6 +507,10 @@ def interactive_mode():
                 _show_tasks(helper)
             elif action == 'extensions':
                 _show_extensions(helper)
+            # --- 新增功能：交互模式支持 feature 命令 ---
+            elif action == 'feature':
+                 _interactive_feature(helper.feature_manager, parts[1:])
+            # --- 新增功能结束 ---
             else:
                 print(f"❌ 未知命令: {action}")
                 print("输入 'help' 查看可用命令")
@@ -416,18 +521,99 @@ def interactive_mode():
         except Exception as e:
             print(f"❌ 错误: {e}")
 
+# --- 新增功能：交互模式下的 feature 命令处理 ---
+def _interactive_feature(feature_manager: FeatureManager, args: list):
+    """交互式特性管理"""
+    if not args:
+        print("特性命令: list, show, edit, find")
+        return
+
+    sub_action = args[0].lower()
+
+    if sub_action == 'list':
+        status_filter = None
+        if '--status' in args:
+            try:
+                status_idx = args.index('--status')
+                status_filter = args[status_idx + 1]
+            except (IndexError, ValueError):
+                print("⚠️  --status 参数格式不正确")
+        features = feature_manager.list_features(status_filter)
+        if not features:
+            print(f"ℹ️  没有找到{'状态为 ' + status_filter + ' 的' if status_filter else ''}特性。")
+        else:
+            print(f"=== 特性列表 ({len(features)} 个){' - 状态: ' + status_filter if status_filter else ''} ===")
+            for feat in features:
+                print(f"ID: {feat['id']}, 状态: {feat['status']}")
+                print(f"  描述: {feat['description']}")
+                print(f"  创建时间: {feat.get('created_at', 'N/A')}")
+                if feat.get('exported_at'):
+                    print(f"  导出时间: {feat['exported_at']}")
+                if feat.get('applied_at'):
+                    print(f"  应用时间: {feat['applied_at']}")
+                if feat.get('export_file'):
+                    print(f"  导出文件: {feat['export_file']}")
+                if feat.get('response_file'):
+                    print(f"  响应文件: {feat['response_file']}")
+                print("-" * 20)
+
+    elif sub_action == 'show':
+        feature_id = args[1] if len(args) > 1 else input("请输入特性ID: ").strip()
+        if not feature_id:
+            print("❌ 必须指定特性ID")
+            return
+        feature = feature_manager.get_feature(feature_id)
+        if not feature:
+            print(f"❌ 未找到特性: {feature_id}")
+            return
+        print(f"=== 特性详情: {feature_id} ===")
+        print(f"状态: {feature['status']}")
+        print(f"描述: {feature['description']}")
+        print(f"创建时间: {feature.get('created_at', 'N/A')}")
+        if feature.get('exported_at'):
+            print(f"导出时间: {feature['exported_at']}")
+        if feature.get('applied_at'):
+            print(f"应用时间: {feature['applied_at']}")
+        if feature.get('export_file'):
+            print(f"关联导出文件: {feature['export_file']}")
+        if feature.get('response_file'):
+            print(f"关联响应文件: {feature['response_file']}")
+
+    elif sub_action == 'edit':
+        feature_manager.edit_features_file()
+
+    elif sub_action == 'find':
+        keyword = args[1] if len(args) > 1 else input("请输入描述关键词: ").strip()
+        if not keyword:
+            print("❌ 必须指定关键词")
+            return
+        features = feature_manager.find_feature_by_description(keyword)
+        if not features:
+            print(f"ℹ️  未找到包含关键词 '{keyword}' 的特性。")
+        else:
+            print(f"=== 匹配特性 (关键词: '{keyword}') ===")
+            for feat in features:
+                print(f"ID: {feat['id']}, 状态: {feat['status']}")
+                print(f"  描述: {feat['description']}")
+                print("-" * 20)
+    else:
+        print(f"❌ 未知的 feature 子命令: {sub_action}")
+# --- 新增功能结束 ---
 
 def _show_interactive_help():
     """显示交互式模式帮助"""
     help_text = """
 可用命令:
   export [目录1] [目录2] ... [文件] [--task 任务] [--task-content 内容] [--incremental] [--task-prompt]  导出项目代码
-  apply [文件] [目录] [--show-diff] [--no-backup]                     应用AI  响应
+  apply [文件] [目录] [--show-diff] [--no-backup]                     应用AI响应
   validate [文件]                                                      验证响应格式
   session start|log|history|list [参数]                               会话管理
-  config init|show                                                       配置管理
+  config init|show                                                        配置管理
   tasks                                                               显示可用任务
-  extensions                                                            显示支持的扩展名
+  extensions                                                             显示支持的扩展名
+  # --- 新增功能：添加交互模式下的 feature 帮助 ---
+  feature list|show|edit|find [参数]                                  特性管理
+  # --- 新增功能结束 ---
   help                                                                 显示此帮助
   quit/exit                                                           退出程序
 """
@@ -485,7 +671,7 @@ def _interactive_export(helper, args):
         output_file = src_dirs.pop()
 
     # 如果没有指定任务，直接进入任务选择流程，不再询问 y/N
-    # 修改点：移除了 "use_task = input( "是否指定任务? (y/N):  ").strip().lower() " 这一步
+    # 修改点：移除了 "use_task = input( "是否指定任务? (y/N): ").strip().lower() " 这一步
     if not task:
         # 直接显示可用任务并让用户选择
         tasks = list(helper.task_manager.list_tasks().keys())
@@ -549,6 +735,7 @@ def _interactive_export(helper, args):
                 include_task_prompt = True
 
     try:
+        # 传递 custom_task_content 参数
         result_file = helper.export_to_markdown(
             src_dirs, output_file, task=task,
             incremental=incremental,
@@ -605,11 +792,15 @@ def _interactive_apply(helper, args):
                 return
 
     try:
-        helper.apply_markdown_response(
+        # 应用响应
+        result = helper.apply_markdown_response(
             markdown_file, dst_dir,
             create_backup=not no_backup,
             show_diff=show_diff
         )
+        # --- 新增功能：在交互模式 apply 成功后提示关联的特性 ---
+        # 这部分逻辑已在 core.py 的 apply_markdown_response 中处理
+        # --- 新增功能结束 ---
         print("✅ 应用完成! ")
     except Exception as e:
         print(f"❌ 应用失败: {e}")

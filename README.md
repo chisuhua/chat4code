@@ -38,12 +38,13 @@ chat4code 是一个简单易用的工具，帮助开发者将本地代码项目�
 - ⌨️ **多种交互方式**：命令行、交互式、配置化
 - 📦 **零依赖**：只使用Python标准库
 - 🧩 **模板系统**：减少提示词重复，提高维护效率
+- 📋 **功能需求管理**：保存、查询和跟踪功能需求，支持状态管理、标签和搜索
 
 ## 安装
 
 ```bash
 # 克隆项目
-git clone https://github.com/yourusername/chat4code.git
+git clone https://github.com/yourusername/chat4code.git  
 cd chat4code
 
 # 直接使用（无需安装）
@@ -150,6 +151,84 @@ python -m chat4code session history my_development
 # 列出所有会话
 python -m chat4code session list
 ```
+
+### 功能需求管理
+
+功能需求管理系统帮助您跟踪和管理通过`add_feature`任务创建的功能需求，支持状态管理、标签系统和多种视图选项。
+
+#### 状态管理
+
+每个功能需求有三种状态：
+- `pending`（待处理）：已创建但尚未导出
+- `exported`（已导出）：已导出给AI但尚未应用
+- `applied`（已应用）：AI响应已应用到本地代码
+
+#### 标签系统
+
+为功能需求添加标签，便于分类和过滤：
+```bash
+# 为功能添加标签
+python -m chat4code feature tag add 1 auth high-priority
+
+# 移除功能标签
+python -m chat4code feature tag remove 1 high-priority
+
+# 列出所有标签
+python -m chat4code feature tags
+```
+
+#### 搜索能力
+
+按关键词、状态和标签搜索功能需求：
+```bash
+# 搜索关键词
+python -m chat4code feature search "登录"
+
+# 带状态过滤的搜索
+python -m chat4code feature search "登录" --status applied
+```
+
+#### 视图选项
+
+多种视图选项帮助您更好地组织和查看功能需求：
+
+```bash
+# 默认视图（按时间排序）
+python -m chat4code feature list
+
+# 按状态视图
+python -m chat4code feature list --view status
+
+# 按标签视图
+python -m chat4code feature list --view tags
+
+# 按时间线视图
+python -m chat4code feature list --view timeline
+```
+
+#### 基本用法
+
+```bash
+# 保存功能需求
+python -m chat4code export ./my_project --task add_feature --task-content "添加用户登录功能"
+
+# 查看功能需求列表
+python -m chat4code feature list
+
+# 查看特定功能详情
+python -m chat4code feature show 1
+
+# 直接编辑功能数据库
+python -m chat4code feature edit
+```
+
+#### 与工作流集成
+
+功能需求管理系统与导出和应用流程无缝集成：
+
+1. **导出阶段**：当执行`add_feature`任务时，功能描述自动保存到数据库
+2. **应用阶段**：当应用AI响应后，关联的功能需求自动标记为"已应用"
+3. **状态跟踪**：您可以通过`feature list`随时查看功能需求的状态
 
 ### 格式验证
 ```bash
@@ -302,6 +381,7 @@ python -m chat4code --config-init
 ├── prompts.yaml             # 提示词文件
 ├── exports/                 # 导出文件目录
 └── imports/                 # 导入文件目录
+└── .chat4code/              # 元数据目录（包含features.json等）
 ```
 
 ## 使用流程
@@ -331,6 +411,40 @@ python -m chat4code --config-init
    # 差异信息会自动显示在应用结果中
    ```
 
+### 功能需求管理工作流
+
+```bash
+# 1. 保存功能需求
+python -m chat4code export ./my_project --task add_feature --task-content "添加用户登录功能"
+
+# 2. 查看功能需求列表
+python -m chat4code feature list
+# 输出示例：
+# ⏳ #1 [pending] 添加用户登录功能
+#    🏷️ 标签: auth, high-priority
+
+# 3. 应用AI响应
+python -m chat4code apply response.md ./updated_project
+
+# 4. 再次查看功能需求列表（状态已更新）
+python -m chat4code feature list
+# 输出示例：
+# ✅ #1 [applied] 添加用户登录功能
+#    🏷️ 标签: auth, high-priority
+
+# 5. 按状态查看功能需求
+python -m chat4code feature list --view status
+
+# 6. 按标签查看功能需求
+python -m chat4code feature list --view tags
+
+# 7. 按时间线查看功能需求
+python -m chat4code feature list --view timeline
+
+# 8. 搜索功能需求
+python -m chat4code feature search "登录"
+```
+
 ### 增量开发工作流
 ```bash
 # 第一次导出
@@ -354,6 +468,8 @@ python -m chat4code --interactive
 chat4code> config set-type python  # 设置项目类型
 chat4code> export ./my_project --task analyze  # 自动序列化文件名
 chat4code> apply  # 自动使用最新的导入文件
+chat4code> feature list  # 查看功能需求
+chat4code> feature search "登录"  # 搜索功能需求
 ```
 
 ## 支持的文件类型
@@ -394,7 +510,19 @@ python -m chat4code session log --task "前端开发" --desc "实现用户界面
 - 支持路径安全检查，防止目录遍历攻击
 - 可以通过配置文件自定义排除敏感文件
 
-### 4. 项目类型管理
+### 4. 功能需求管理最佳实践
+```bash
+# 1. 为功能需求添加标签
+python -m chat4code export ./my_project --task add_feature --task-content "实现数据导出功能" --tags "data,high-priority"
+
+# 2. 按状态跟踪功能需求
+python -m chat4code feature list --view status
+
+# 3. 直接编辑功能数据库（高级用法）
+python -m chat4code feature edit
+```
+
+### 5. 项目类型管理
 ```bash
 # 强制指定项目类型
 python -m chat4code config set-type cpp
@@ -405,7 +533,7 @@ python -m chat4code config set-type cpp
 }
 ```
 
-### 5. 自动化脚本
+### 6. 自动化脚本
 ```bash
 #!/bin/bash
 # 自动化AI代码审查脚本
