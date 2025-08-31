@@ -28,9 +28,9 @@ def main():
     )
 
     parser.add_argument('action', nargs='?', choices=['export', 'apply', 'validate', 'session', 'debug-parse', 'config', 'help', 'feature'],
-                        help='操作类型: export(导出代码), apply(应用响应), validate(验证格式), session(会话管理), debug-parse(调试解析), config(配置管理), help(帮助), feature(特性管理)')
+                        help=' 操作类型: export(导出代码), apply(应用响应), validate(验证格式), session(会话管理), debug-parse(调试解析), config(配置管理), help(帮助), feature(特性管理)')
 
-    parser.add_argument('paths', nargs='*', help='路径参数')
+    parser.add_argument('paths', nargs='*', help='路径参数') 
 
     parser.add_argument('--ext', nargs='*', help='文件扩展名 (如: .cpp .h .py)')
     parser.add_argument('--list-extensions', action='store_true', help='列出支持的文件扩展名')
@@ -67,7 +67,7 @@ def main():
 
     args = parser.parse_args()
 
-    # 如果指定了交互模式，启动交互式界面
+    # 如果指定了交互模式，启动交互式界面 
     if args.interactive:
         interactive_mode()
         return
@@ -182,7 +182,7 @@ def main():
              keyword = args.paths[1]
              features = feature_manager.find_feature_by_description(keyword)
              if not features:
-                 print(f"ℹ️  未找到包含关键词 '{keyword}' 的特性。")
+                  print(f"ℹ️  未找到包含关键词 '{keyword}' 的特性。")
              else:
                  print(f"=== 匹配特性 (关键词: '{keyword}') ===")
                  for feat in features:
@@ -418,7 +418,7 @@ def main():
 
         # --- 修正点 5: 设置 add_feature 和 explain 任务的默认包含提示词行为 ---
         include_task_prompt = args.task_prompt
-        # 如果是 add_feature 或 explain 任务，并且用户提供了内容或显式要求包含提示词，则在文件中包含 提示词
+        # 如果是 add_feature 或 explain 任务，并且用户提供了内容或显式要求包含提示词，则在文件中包含  提示词
         # 核心逻辑 (`core.py`) 会处理 custom_task_content 存在时的包含行为，
         # 但如果用户显式使用了 --task-prompt，我们也应尊重。
         if args.task in ["add_feature", "explain"] and (task_content or include_task_prompt):
@@ -509,7 +509,7 @@ def interactive_mode():
                 _show_extensions(helper)
             # --- 新增功能：交互模式支持 feature 命令 ---
             elif action == 'feature':
-                 _interactive_feature(helper.feature_manager, parts[1:])
+                _interactive_feature(helper.feature_manager, parts[1:])
             # --- 新增功能结束 ---
             else:
                 print(f"❌ 未知命令: {action}")
@@ -605,16 +605,16 @@ def _show_interactive_help():
     help_text = """
 可用命令:
   export [目录1] [目录2] ... [文件] [--task 任务] [--task-content 内容] [--incremental] [--task-prompt]  导出项目代码
-  apply [文件] [目录] [--show-diff] [--no-backup]                     应用AI响应
+  apply [文件] [目录] [--show-diff] [--no-backup]                     应用AI 响应
   validate [文件]                                                      验证响应格式
   session start|log|history|list [参数]                               会话管理
-  config init|show                                                        配置管理
+  config init|show                                                         配置管理
   tasks                                                               显示可用任务
-  extensions                                                             显示支持的扩展名
+  extensions                                                              显示支持的扩展名
   # --- 新增功能：添加交互模式下的 feature 帮助 ---
   feature list|show|edit|find [参数]                                  特性管理
   # --- 新增功能结束 ---
-  help                                                                 显示此帮助
+  help                                                                  显示此帮助
   quit/exit                                                           退出程序
 """
     print(help_text)
@@ -671,7 +671,7 @@ def _interactive_export(helper, args):
         output_file = src_dirs.pop()
 
     # 如果没有指定任务，直接进入任务选择流程，不再询问 y/N
-    # 修改点：移除了 "use_task = input( "是否指定任务? (y/N): ").strip().lower() " 这一步
+    # 修改点：移除了  "use_task = input(  "是否指定任务? (y/N):  ").strip().lower()  " 这一步
     if not task:
         # 直接显示可用任务并让用户选择
         tasks = list(helper.task_manager.list_tasks().keys())
@@ -909,7 +909,7 @@ def _interactive_config(helper, args):
         helper.init_config()
     elif sub_action == 'show':
         helper.show_config()
-    else:
+    else: 
         print(f"❌ 未知的配置命令: {sub_action}")
 
 

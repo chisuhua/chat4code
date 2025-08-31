@@ -62,7 +62,7 @@ class TaskManager:
                 # 处理模板
                 self.templates = raw_prompts.get('templates', {})
                 self.prompts = self._process_templates(raw_prompts)
-                 
+                   
             except Exception as e:
                 raise Exception(f"加载提示词文件失败: {e}")
         else:
@@ -109,7 +109,7 @@ class TaskManager:
                         params[key.strip()] = value.strip()
             else:
                 template_name = template_ref
-                params = {} 
+                params = {}   
             
             # 查找模板
             if template_name in self.templates:
@@ -120,9 +120,13 @@ class TaskManager:
                     result = template_content
                     for key, value in params.items():
                         result = result.replace(f'{{{key}}}', value)
+                    # --- 核心修改点 ---
+                    # 替换 [关联特性ID] 为 关联特性ID: {feature_id}
+                    result = result.replace("[关联特性ID]", "关联特性ID: {feature_id}")
+                    # --- 修改结束 ---
                     return result
                 except Exception as e:
-                    print(f"⚠️  模板替换失败: {e}")
+                    print(f"⚠️ 模板替换失败: {e}")
                     return match.group(0)
             else:
                 return match.group(0)
@@ -217,7 +221,7 @@ class TaskManager:
                 # 处理模板
                 self.templates = raw_prompts.get('templates', {})
                 self.prompts = self._process_templates(raw_prompts)
-                 
+                   
             except Exception as e:
                 print(f"❌ 重新加载提示词文件失败: {e}")
 

@@ -35,7 +35,7 @@ class CodeProjectAIHelper:
             self.task_manager = TaskManager(prompts_file)
         except FileNotFoundError as e:
             print(f"❌ {e}")
-            print("\n💡 解决方案:")
+            print("\n💡 解决方案: ")
             print("   1. 运行 'python -m chat4code --config-init' 初始化配置")
             print("   2. 或者手动创建 prompts.yaml 文件")
             print("   3. 或者在 .chat4code.json 中指定 prompts_file 路径")
@@ -157,7 +157,7 @@ class CodeProjectAIHelper:
             # 更新 previous_parts 为当前路径的组件
             previous_parts = parts
 
-        tree_lines.append("   ")  # 在末尾添加一个空行
+        tree_lines.append("    ")  # 在末尾添加一个空行
         return tree_lines
 
     def export_to_markdown(self, src_dirs: List[str] = None, output_file: str = None,
@@ -198,7 +198,7 @@ class CodeProjectAIHelper:
         if output_dir and not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        # 检测项目类型（支持配置强制指定）
+        # 检测 项目类型（支持配置强制指定）
         project_type = self._detect_project_type_multi(matched_src_dirs, extensions)
 
         # 如果是增量导出，获取变更的文件
@@ -209,21 +209,21 @@ class CodeProjectAIHelper:
         markdown_lines = []
 
         # 添加标题和基本信息
-        markdown_lines.append("# 项目代码导出")
-        markdown_lines.append(f"项目名称: {', '.join([os.path.basename(os.path.abspath(src_dir)) for src_dir in matched_src_dirs])}")
-        markdown_lines.append(f"导出时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        markdown_lines.append(f"源目录: {', '.join([os.path.abspath(src_dir) for src_dir in matched_src_dirs])}")
-        markdown_lines.append(f"项目类型: {project_type}")
-        if self.config_manager.get_project_type():
-            markdown_lines.append("类型来源: 配置指定")
-        else:
-            markdown_lines.append("类型来源: 自动检测")
-        if incremental:
-            markdown_lines.append("模式: 增量导出")
-            if since_time:
-                markdown_lines.append(f"自时间: {since_time}")
-            else:
-                markdown_lines.append("自上次导出以来的变更")
+        #markdown_lines.append("# 项目代码导出")
+        #markdown_lines.append(f"项目名称: {', '.join([os.path.basename(os.path.abspath(src_dir)) for src_dir in matched_src_dirs])}")
+        #markdown_lines.append(f"导出时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        #markdown_lines.append(f"源目录: {', '.join([os.path.abspath(src_dir) for src_dir in matched_src_dirs])}")
+        #markdown_lines.append(f"项目类型: {project_type}")
+        #if self.config_manager.get_project_type():
+        #    markdown_lines.append("类型来源: 配置指定")
+        #else:
+        #    markdown_lines.append("类型来源: 自动检测")
+        #if incremental:
+        #    markdown_lines.append("模式: 增量导出")
+        #    if since_time:
+        #        markdown_lines.append(f"自时间: {since_time}")
+        #    else:
+        #        markdown_lines.append("自上次导出以来的变更")
         # --- 新增功能：添加特性ID信息 ---
         feature_id = None
         if task == "add_feature" and custom_task_content:
@@ -241,9 +241,6 @@ class CodeProjectAIHelper:
         if task and self.task_manager.has_task(task):
             task_info = self.task_manager.get_task_info(task, project_type)
 
-            # --- 修正点 2: 对于 add_feature 和 explain 任务，统一处理自定义内容和提示词包含逻辑 ---
-            # 如果是 add_feature 或 explain 任务，并且提供了自定义内容，
-            # 则默认在导出文件中包含定制后的提示词。
             if task in ["add_feature", "explain"] and custom_task_content:
                 # 调用任务管理器的定制函数
                 customized_prompt = self.task_manager.customize_task_prompt(task, project_type, custom_task_content)
@@ -254,16 +251,9 @@ class CodeProjectAIHelper:
                     # 确保提示词被包含在导出文件中
                     include_task_prompt = True
 
-            # --- 修正点 3: 移除了之前错误的、基于 include_task_prompt 默认值的判断逻辑 ---
-            # 原有的 if task == "add_feature" and not include_task_prompt: ... 逻辑已删除
-            # 因为正确的逻辑是：如果提供了 custom_task_content 且任务是 add_feature/explain，则包含提示词。
-            # 否则，行为由 include_task_prompt 参数（来自 CLI）决定。
-
             if include_task_prompt and task_info: # 确保 task_info 存在
                 # 在导出文件中包含任务提示
                 markdown_lines.append("## AI任务提示")
-                markdown_lines.append("    ")
-                markdown_lines.append("**请按照以下要求执行任务**:    ")
                 markdown_lines.append("    ")
                 markdown_lines.append(task_info['prompt']) # 使用可能被定制过的 prompt
                 markdown_lines.append("    ")
@@ -271,10 +261,8 @@ class CodeProjectAIHelper:
                 markdown_lines.append("    ")
             elif task_info: # 确保 task_info 存在
                 # 只在屏幕上显示任务提示，不在导出文件中包含
-                print("\n=== AI任务提示 ===")
                 print("请按照以下要求执行任务: ")
                 print(task_info['prompt']) # 使用可能被定制过的 prompt
-                print("==================\n")
 
         # --- 新增功能：收集导出的文件路径 ---
         exported_file_paths = []
@@ -289,7 +277,7 @@ class CodeProjectAIHelper:
                         file_path = os.path.join(root, file)
                         rel_path = os.path.relpath(file_path, src_dir)
 
-                        # 检查是否应该排除此文件
+                        # 检查 是否应该排除此文件
                         if self._should_exclude_file(rel_path, self.exclude_patterns):
                             continue
 
@@ -333,7 +321,7 @@ class CodeProjectAIHelper:
 
         # --- 新增功能：生成并插入文件目录 ---
         # 在任务提示之后（如果有的话）和文件内容之前插入目录
-        # 查找插入点：在最后一个  "---" 分隔线之后插入
+        # 查找插入点：在最后一个    "---" 分隔线之后插入
         insert_index = 0
         for i in range(len(markdown_lines) - 1, -1, -1):
             if markdown_lines[i].strip() == "---":
@@ -362,7 +350,7 @@ class CodeProjectAIHelper:
             if not incremental:
                 self._save_export_metadata_multi(matched_src_dirs, output_file)
         else:
-            # 输出到控制台
+            # 输出到控制台 
             print(markdown_content)
 
         return output_file # 返回实际使用的输出文件名
@@ -530,12 +518,12 @@ class CodeProjectAIHelper:
 
         # --- 新增功能：在应用成功后更新特性状态 ---
         # 尝试从 Markdown 文件中提取关联的特性ID
-        # 这里采用一个简单的方法：查找第一行包含 "关联特性ID:" 的行
+        # 这里采用一个简单的方法：查找第一行包含  "关联特性ID: " 的行
         lines = markdown_content.splitlines()
         associated_feature_id = None
         for line in lines:
-            if line.startswith("关联特性ID:"):
-                associated_feature_id = line.split(":", 1)[1].strip()
+            if line.startswith("关联特性ID: "):
+                associated_feature_id = line.split(": ", 1)[1].strip()
                 break
 
         if associated_feature_id:

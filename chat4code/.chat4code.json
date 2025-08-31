@@ -42,7 +42,8 @@
     "exports/",
     "setup.py",
     "*.pyc",
-    ".git/"
+    ".git/",
+    "venv/"
   ],
   "backup_enabled": true,
   "metadata_dir": ".chat4code",
