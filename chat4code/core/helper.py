@@ -13,9 +13,7 @@ from .tasks import TaskManager
 from .parser import ResponseParser
 from .validator import ResponseValidator
 from .config import ConfigManager
-# --- 新增导入 ---
 from .features import FeatureManager
-# --- 新增导入结束 ---
 import fnmatch
 
 class CodeProjectAIHelper:

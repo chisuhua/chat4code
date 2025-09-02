@@ -159,11 +159,3 @@ class FeatureManager:
                 results.append(feature)
         return results
 
-# --- 功能说明 ---
-# 该模块实现了任务描述中的核心功能：
-# 1. `add_feature` 方法用于添加新特性并生成唯一编号。
-# 2. `update_feature_status` 方法管理特性状态 (pending, exported, applied)。
-# 3. `edit_features_file` 方法支持直接编辑数据库文件。
-# 4. 特性数据包含 `export_file` 和 `response_file` 字段，实现了文件关联。
-# 5. `list_features` 和 `get_feature` 方法支持查询和浏览。
-# 6. 数据存储在 `.chat4code/features.json` 中，便于管理和追溯。
